@@ -3,5 +3,8 @@
 __pycache__
 *.py[cod]
 tests
-PLAN.md
 README.md
+docs
+cli
+cloud_install
+.gitattributes
