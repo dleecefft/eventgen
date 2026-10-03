@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Event Generator{% endblock %}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #08111d;
+      --panel: #101d2d;
+      --panel-2: #15263a;
+      --text: #e9f1f7;
+      --muted: #9db0c0;
+      --accent: #4fd1c5;
+      --danger: #ff7b72;
+      --warning: #f2c94c;
+      --border: #294057;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.45 system-ui, sans-serif; }
+    header { border-bottom: 1px solid var(--border); background: #0b1725; }
+    nav, main { width: min(1080px, calc(100% - 32px)); margin: auto; }
+    nav { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    nav a { color: var(--text); text-decoration: none; }
+    nav .brand { font-size: 1.15rem; font-weight: 750; letter-spacing: .02em; }
+    nav .meta { color: var(--muted); font-size: .88rem; display: flex; align-items: center; gap: 16px; }
+    main { padding: 34px 0 60px; }
+    h1 { margin-top: 0; font-size: clamp(1.8rem, 4vw, 2.7rem); line-height: 1.12; }
+    h2 { margin-top: 0; }
+    .lede { color: var(--muted); max-width: 760px; font-size: 1.05rem; }
+    .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 22px; margin-top: 26px; }
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; box-shadow: 0 18px 60px rgba(0,0,0,.18); }
+    .stack { display: grid; gap: 17px; }
+    label { display: grid; gap: 7px; font-weight: 650; }
+    input[type="url"], select { width: 100%; background: #091523; border: 1px solid #3a536b; border-radius: 9px; color: var(--text); padding: 12px; font: inherit; }
+    input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .check { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+    .check input { width: 18px; height: 18px; }
+    button, .button { border: 0; border-radius: 9px; padding: 11px 16px; background: var(--accent); color: #06201d; font: inherit; font-weight: 750; cursor: pointer; text-decoration: none; display: inline-block; }
+    button.secondary, .button.secondary { background: #294057; color: var(--text); }
+    button.danger { background: var(--danger); color: #280805; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .notice { padding: 13px 15px; border-radius: 9px; border: 1px solid var(--border); background: var(--panel-2); }
+    .notice.warning { border-color: #806c26; color: #ffe58a; }
+    .notice.error { border-color: #7a3535; color: #ffaaa4; }
+    .notice.success { border-color: #277b71; color: #8af1e7; }
+    .muted { color: var(--muted); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #07111c; border: 1px solid var(--border); border-radius: 9px; padding: 15px; max-height: 420px; overflow: auto; }
+    dl { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 8px 16px; }
+    dt { color: var(--muted); }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 9px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+    th { color: var(--muted); width: 28%; }
+    @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } nav { align-items: flex-start; padding: 16px 0; flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a class="brand" href="{{ url_for('index') }}">External Event Generator</a>
+      <div class="meta">
+        <span>{{ session_event_count }} session events</span>
+        <a href="{{ url_for('download_session_log') }}">Download session log</a>
+      </div>
+    </nav>
+  </header>
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="notice {{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

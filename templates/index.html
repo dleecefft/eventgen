@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}New request · Event Generator{% endblock %}
+{% block content %}
+  <h1>Send one controlled external request</h1>
+  <p class="lede">Enter an approved URL, select the identity you want logged, and review every redirect before another request is sent.</p>
+  <div class="grid">
+    <section class="card">
+      <h2>Request</h2>
+      <form class="stack" method="post" action="{{ url_for('make_request') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>Destination URL
+          <input type="url" name="url" placeholder="https://www.example.com/path" required autofocus>
+        </label>
+        <label>User-Agent
+          <select name="user_agent_index">
+            {% for option in user_agents %}
+              <option value="{{ loop.index0 }}">{{ loop.index0 }} · {{ option.name }}{% if option.note %} — {{ option.note }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" name="verify_tls" checked>
+          Verify the server TLS certificate
+        </label>
+        <p class="muted">Clearing certificate verification permits invalid or privately issued certificates. The result and downloaded evidence will be marked unverified.</p>
+        <div class="actions">
+          <button type="submit">Send GET request</button>
+          <button class="secondary" type="submit" formaction="{{ url_for('certificate_chain') }}">Display certificate chain</button>
+        </div>
+      </form>
+    </section>
+    <aside class="stack">
+      <section class="card">
+        <h2>Public egress IP</h2>
+        <p class="muted">Ask the configured external service which NAT address it observes.</p>
+        <form method="post" action="{{ url_for('public_ip') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="user_agent_index" value="0">
+          <input type="hidden" name="verify_tls" value="on">
+          <button class="secondary" type="submit">Show public IP</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Configured scope</h2>
+        <p class="muted">Only these deployment-managed hostname patterns are accepted:</p>
+        <ul>{% for host in allowed_hosts %}<li><code>{{ host }}</code></li>{% endfor %}</ul>
+      </section>
+      <section class="card">
+        <h2>Ephemeral evidence</h2>
+        <p class="muted">The session log is held on disposable container storage. Download it before turning the instance down.</p>
+        <a class="button secondary" href="{{ url_for('download_session_log') }}">Download JSON log</a>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Response {{ snapshot.status }} · Event Generator{% endblock %}
+{% block content %}
+  <h1>Response review</h1>
+  {% if not snapshot.tls_verified %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}
+  <div class="grid">
+    <section class="stack">
+      <div class="card">
+        <h2>{{ snapshot.status }} {{ snapshot.reason }}</h2>
+        <dl>
+          <dt>URL</dt><dd>{{ snapshot.request_url }}</dd>
+          <dt>Validation ID</dt><dd><code>{{ snapshot.validation_id }}</code></dd>
+          <dt>User-Agent</dt><dd><code>{{ snapshot.user_agent }}</code></dd>
+          <dt>TLS verified</dt><dd>{{ "Yes" if snapshot.tls_verified else "NO" }}</dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h2>Response headers</h2>
+        <table><tbody>{% for header in response_headers %}<tr><th>{{ header.name }}</th><td><code>{{ header.value }}</code></td></tr>{% endfor %}</tbody></table>
+      </div>
+      <div class="card">
+        <h2>Body preview{% if snapshot.body_truncated %} · truncated{% endif %}</h2>
+        <pre>{{ response_body }}</pre>
+      </div>
+    </section>
+    <aside class="stack">
+      {% if resolved_redirect %}
+        <section class="card">
+          <h2>Redirect requires a decision</h2>
+          <p class="muted">Location: <code>{{ location }}</code></p>
+          <p><code>{{ resolved_redirect }}</code></p>
+          <div class="actions">
+            <form method="post" action="{{ url_for('make_request') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="url" value="{{ resolved_redirect }}">
+              <input type="hidden" name="user_agent_index" value="{{ user_agent_index }}">
+              {% if snapshot.tls_verified %}<input type="hidden" name="verify_tls" value="on">{% endif %}
+              <button type="submit">Proceed</button>
+            </form>
+            <form method="post" action="{{ url_for('drop_redirect') }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="source_url" value="{{ snapshot.request_url }}">
+              <input type="hidden" name="target_url" value="{{ resolved_redirect }}">
+              <button class="danger" type="submit">Drop</button>
+            </form>
+          </div>
+        </section>
+      {% endif %}
+      <section class="card">
+        <h2>Next action</h2>
+        <div class="actions">
+          <a class="button secondary" href="{{ url_for('index') }}">New request</a>
+          <a class="button secondary" href="{{ url_for('download_session_log') }}">Download log</a>
+        </div>
+        <form method="post" action="{{ url_for('certificate_chain') }}" style="margin-top: 10px">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="url" value="{{ snapshot.request_url }}">
+          {% if snapshot.tls_verified %}<input type="hidden" name="verify_tls" value="on">{% endif %}
+          <button class="secondary" type="submit">Display certificate chain</button>
+        </form>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

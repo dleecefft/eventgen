@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Certificate chain · Event Generator{% endblock %}
+{% block content %}
+  <h1>Presented certificate chain</h1>
+  {% if not chain.tls_verified %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}
+  <section class="card">
+    <dl>
+      <dt>URL</dt><dd>{{ chain.url }}</dd>
+      <dt>Endpoint</dt><dd><code>{{ chain.hostname }}:{{ chain.port }}</code></dd>
+      <dt>TLS verified</dt><dd>{{ "Yes" if chain.tls_verified else "NO" }}</dd>
+      <dt>TLS version</dt><dd>{{ chain.tls_version }}</dd>
+      <dt>Cipher</dt><dd>{{ chain.cipher }}</dd>
+      <dt>Certificates</dt><dd>{{ chain.certificates|length }}</dd>
+    </dl>
+    <p class="muted">The list is ordered leaf first. Servers commonly omit the trusted root certificate, so absence of a root here is not by itself an error.</p>
+  </section>
+  <div class="stack" style="margin-top: 22px">
+    {% for certificate in chain.certificates %}
+      <section class="card">
+        <h2>{{ certificate.position }} · {{ certificate.role }}</h2>
+        <dl>
+          <dt>Subject</dt><dd><code>{{ certificate.subject }}</code></dd>
+          <dt>Issuer</dt><dd><code>{{ certificate.issuer }}</code></dd>
+          <dt>Serial</dt><dd><code>{{ certificate.serial_number }}</code></dd>
+          <dt>Valid from</dt><dd>{{ certificate.not_valid_before_utc }}</dd>
+          <dt>Valid until</dt><dd>{{ certificate.not_valid_after_utc }}</dd>
+          <dt>SHA-256</dt><dd><code>{{ certificate.sha256_fingerprint }}</code></dd>
+          <dt>Signature hash</dt><dd>{{ certificate.signature_hash }}</dd>
+          <dt>Public key</dt><dd>{{ certificate.public_key_type }}</dd>
+          <dt>CA certificate</dt><dd>{% if certificate.is_ca is none %}Not declared{% else %}{{ "Yes" if certificate.is_ca else "No" }}{% endif %}</dd>
+          <dt>Self-issued</dt><dd>{{ "Yes" if certificate.self_issued else "No" }}</dd>
+          <dt>DNS names</dt><dd>{% if certificate.dns_names %}<code>{{ certificate.dns_names|join(", ") }}</code>{% else %}None presented{% endif %}</dd>
+          <dt>IP addresses</dt><dd>{% if certificate.ip_addresses %}<code>{{ certificate.ip_addresses|join(", ") }}</code>{% else %}None presented{% endif %}</dd>
+        </dl>
+      </section>
+    {% endfor %}
+  </div>
+  <div class="actions" style="margin-top: 22px">
+    <a class="button secondary" href="{{ url_for('index') }}">New request</a>
+    <a class="button secondary" href="{{ url_for('download_session_log') }}">Download log</a>
+  </div>
+{% endblock %}
