@@ -32,8 +32,8 @@ class WebAppTests(unittest.TestCase):
                 USERNAME_ENV: self.username,
                 PASSWORD_ENV: self.password,
                 ALLOWED_HOSTS_ENV: "example.test,*.example.test",
-                "EVENT_GENERATOR_SESSION_DIR": self.temp_dir.name,
-                "EVENT_GENERATOR_SECURE_COOKIES": "false",
+                "EVENTGEN_SESSION_DIR": self.temp_dir.name,
+                "EVENTGEN_SECURE_COOKIES": "false",
             },
             clear=False,
         )

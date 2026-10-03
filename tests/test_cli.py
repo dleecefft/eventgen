@@ -8,7 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from io import StringIO
 from unittest.mock import patch
 
-from cli.event_generator_cli import (
+from cli.eventgen_cli import (
     DEFAULT_USER_AGENT,
     USER_AGENT_OPTIONS,
     build_ssl_context,

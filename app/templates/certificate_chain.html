@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Certificate chain · Event Generator{% endblock %}
+{% block title %}Certificate chain · EventGen{% endblock %}
 {% block content %}
   <h1>Presented certificate chain</h1>
   {% if not chain.tls_verified %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}

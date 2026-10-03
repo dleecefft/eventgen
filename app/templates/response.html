@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Response {{ snapshot.status }} · Event Generator{% endblock %}
+{% block title %}Response {{ snapshot.status }} · EventGen{% endblock %}
 {% block content %}
   <h1>Response review</h1>
   {% if not snapshot.tls_verified %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}

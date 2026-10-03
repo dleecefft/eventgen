@@ -25,7 +25,7 @@ DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_MAX_REDIRECTS = 10
 CORRELATION_HEADER = "X-Validation-ID"
 PUBLIC_IP_ENDPOINT = os.environ.get(
-    "EVENT_GENERATOR_IP_ECHO_URL",
+    "EVENTGEN_IP_ECHO_URL",
     "https://api64.ipify.org?format=json",
 )
 

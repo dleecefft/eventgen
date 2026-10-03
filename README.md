@@ -1,4 +1,4 @@
-# Event Generator
+# EventGen
 
 An authenticated Flask app, packaged as a container, for testing an external
 website one request at a time. It is used to confirm that external
@@ -32,13 +32,13 @@ request proxy.
 Python 3.10 or later is required. No third-party packages are needed.
 
 ```powershell
-python -m cli.event_generator_cli
+python -m cli.eventgen_cli
 ```
 
 If your Windows installation uses the Python launcher:
 
 ```powershell
-py -m cli.event_generator_cli
+py -m cli.eventgen_cli
 ```
 
 Choose **Send a GET request**, type or paste a URL, and review the response. If
@@ -62,8 +62,8 @@ is the address to search for in ingress, proxy, and WAF records. The default
 service is `https://api64.ipify.org?format=json`; override it when required:
 
 ```powershell
-$env:EVENT_GENERATOR_IP_ECHO_URL = "https://approved.example/ip"
-python -m cli.event_generator_cli
+$env:EVENTGEN_IP_ECHO_URL = "https://approved.example/ip"
+python -m cli.eventgen_cli
 ```
 
 The IP lookup discloses the instance's public address and selected User-Agent to
@@ -100,13 +100,13 @@ The Flask application preserves the CLI's core workflow in a browser:
 
 The application refuses to start unless these environment variables exist:
 
-- `EVENT_GENERATOR_USERNAME` — HTTP Basic Auth username;
-- `EVENT_GENERATOR_PASSWORD` — HTTP Basic Auth password; and
-- `EVENT_GENERATOR_ALLOWED_HOSTS` — comma-separated exact or wildcard hostname
+- `EVENTGEN_USERNAME` — HTTP Basic Auth username;
+- `EVENTGEN_PASSWORD` — HTTP Basic Auth password; and
+- `EVENTGEN_ALLOWED_HOSTS` — comma-separated exact or wildcard hostname
   patterns, such as `example.com,*.example.com`.
 
 No credentials are included in source, templates, images, or defaults. Set
-`EVENT_GENERATOR_SECRET_KEY` to a random value in deployed environments so a
+`EVENTGEN_SECRET_KEY` to a random value in deployed environments so a
 container restart does not invalidate its signed browser session. Store the
 username, password, and secret key in the deployment platform's secret manager.
 
@@ -123,11 +123,11 @@ Set values in the current PowerShell process. Replace every bracketed value;
 do not copy real credentials into a tracked file or shell script:
 
 ```powershell
-$env:EVENT_GENERATOR_USERNAME = "<temporary-analyst-username>"
-$env:EVENT_GENERATOR_PASSWORD = "<temporary-strong-password>"
-$env:EVENT_GENERATOR_ALLOWED_HOSTS = "<example.com,*.example.com>"
-$env:EVENT_GENERATOR_SECRET_KEY = & .venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
-$env:EVENT_GENERATOR_SECURE_COOKIES = "false"
+$env:EVENTGEN_USERNAME = "<temporary-analyst-username>"
+$env:EVENTGEN_PASSWORD = "<temporary-strong-password>"
+$env:EVENTGEN_ALLOWED_HOSTS = "<example.com,*.example.com>"
+$env:EVENTGEN_SECRET_KEY = & .venv\Scripts\python.exe -c "import secrets; print(secrets.token_hex(32))"
+$env:EVENTGEN_SECURE_COOKIES = "false"
 & .venv\Scripts\python.exe -m flask --app "app.web_app:create_app" run --host 127.0.0.1 --port 8080
 ```
 
@@ -151,11 +151,11 @@ Export values in the current shell. Replace every bracketed value; do not copy
 real credentials into a tracked file or shell script:
 
 ```bash
-export EVENT_GENERATOR_USERNAME="<temporary-analyst-username>"
-export EVENT_GENERATOR_PASSWORD="<temporary-strong-password>"
-export EVENT_GENERATOR_ALLOWED_HOSTS="<example.com,*.example.com>"
-export EVENT_GENERATOR_SECRET_KEY="$(.venv/bin/python -c 'import secrets; print(secrets.token_hex(32))')"
-export EVENT_GENERATOR_SECURE_COOKIES="false"
+export EVENTGEN_USERNAME="<temporary-analyst-username>"
+export EVENTGEN_PASSWORD="<temporary-strong-password>"
+export EVENTGEN_ALLOWED_HOSTS="<example.com,*.example.com>"
+export EVENTGEN_SECRET_KEY="$(.venv/bin/python -c 'import secrets; print(secrets.token_hex(32))')"
+export EVENTGEN_SECURE_COOKIES="false"
 .venv/bin/python -m flask --app "app.web_app:create_app" run --host 127.0.0.1 --port 8080
 ```
 
@@ -167,15 +167,15 @@ The same loopback-only and HTTPS notes above apply. Git Bash on Windows uses
 Build the image:
 
 ```powershell
-docker build --tag event-generator:mvp .
+docker build --tag eventgen:mvp .
 ```
 
 Supply secrets using your platform's secret manager. For a local container,
 create an untracked `.env` file containing the required values, a random secret
-key, and `EVENT_GENERATOR_SECURE_COOKIES=false`, then run:
+key, and `EVENTGEN_SECURE_COOKIES=false`, then run:
 
 ```powershell
-docker run --rm --env-file .env --publish 127.0.0.1:8080:8080 event-generator:mvp
+docker run --rm --env-file .env --publish 127.0.0.1:8080:8080 eventgen:mvp
 ```
 
 The image runs as a non-root user with one Gunicorn worker and four threads.

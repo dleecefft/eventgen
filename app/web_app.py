@@ -43,12 +43,12 @@ from app.certificate_inspector import inspect_certificate_chain
 
 
 APP_VERSION = "0.1.0"
-USERNAME_ENV = "EVENT_GENERATOR_USERNAME"
-PASSWORD_ENV = "EVENT_GENERATOR_PASSWORD"
-SECRET_KEY_ENV = "EVENT_GENERATOR_SECRET_KEY"
-ALLOWED_HOSTS_ENV = "EVENT_GENERATOR_ALLOWED_HOSTS"
-SESSION_DIR_ENV = "EVENT_GENERATOR_SESSION_DIR"
-SECURE_COOKIES_ENV = "EVENT_GENERATOR_SECURE_COOKIES"
+USERNAME_ENV = "EVENTGEN_USERNAME"
+PASSWORD_ENV = "EVENTGEN_PASSWORD"
+SECRET_KEY_ENV = "EVENTGEN_SECRET_KEY"
+ALLOWED_HOSTS_ENV = "EVENTGEN_ALLOWED_HOSTS"
+SESSION_DIR_ENV = "EVENTGEN_SESSION_DIR"
+SECURE_COOKIES_ENV = "EVENTGEN_SECURE_COOKIES"
 
 SENSITIVE_QUERY_FRAGMENTS = (
     "access_token",
@@ -224,7 +224,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
 
     allowed_hosts = parse_allowed_hosts(allowed_hosts_value or "")
     session_root = Path(
-        os.getenv(SESSION_DIR_ENV, os.path.join(tempfile.gettempdir(), "event_generator_sessions"))
+        os.getenv(SESSION_DIR_ENV, os.path.join(tempfile.gettempdir(), "eventgen_sessions"))
     )
 
     app = Flask(__name__)
@@ -239,14 +239,14 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
         app.config.update(test_config)
 
     log_store = SessionLogStore(session_root)
-    app.extensions["event_generator_log_store"] = log_store
-    app.extensions["event_generator_allowed_hosts"] = allowed_hosts
+    app.extensions["eventgen_log_store"] = log_store
+    app.extensions["eventgen_allowed_hosts"] = allowed_hosts
 
     def session_id() -> str:
-        value = session.get("event_generator_session_id")
+        value = session.get("eventgen_session_id")
         if not isinstance(value, str):
             value = secrets.token_hex(16)
-            session["event_generator_session_id"] = value
+            session["eventgen_session_id"] = value
         return value
 
     def csrf_token() -> str:
@@ -260,7 +260,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
         return Response(
             "Authentication required.\n",
             401,
-            {"WWW-Authenticate": 'Basic realm="Event Generator", charset="UTF-8"'},
+            {"WWW-Authenticate": 'Basic realm="EventGen", charset="UTF-8"'},
             mimetype="text/plain",
         )
 
@@ -484,7 +484,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
         )
         report = {
             "schema_version": 1,
-            "application": "event-generator",
+            "application": "eventgen",
             "application_version": APP_VERSION,
             "generated_at_utc": utc_now(),
             "session_id": current_session_id,
@@ -496,7 +496,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
             content,
             mimetype="application/json",
             as_attachment=True,
-            download_name=f"event-generator-session-{current_session_id}.json",
+            download_name=f"eventgen-session-{current_session_id}.json",
             max_age=0,
         )
 
