@@ -162,6 +162,42 @@ export EVENTGEN_SECURE_COOKIES="false"
 The same loopback-only and HTTPS notes above apply. Git Bash on Windows uses
 `.venv/Scripts/` in place of `.venv/bin/`.
 
+### Verify locally before building the container
+
+Complete these checks with the local Flask server before attempting a Docker
+build, so configuration and code problems are found without a rebuild cycle:
+
+1. Run the unit tests from the repository root:
+
+   ```bash
+   .venv/bin/python -m unittest discover -s tests
+   ```
+
+   On Windows use `.venv\Scripts\python.exe`.
+
+2. Start the server using the Windows or bash commands above. It exits with an
+   error naming the missing variable if `EVENTGEN_USERNAME`,
+   `EVENTGEN_PASSWORD` or `EVENTGEN_ALLOWED_HOSTS` is unset.
+
+3. In a second terminal, confirm the health endpoint (no credentials needed)
+   and that authentication is enforced:
+
+   ```bash
+   curl -i http://127.0.0.1:8080/healthz                  # expect 200
+   curl -i http://127.0.0.1:8080/                         # expect 401
+   curl -i -u "<username>:<password>" http://127.0.0.1:8080/   # expect 200
+   ```
+
+   In PowerShell use `curl.exe`, because `curl` is an alias for
+   `Invoke-WebRequest`.
+
+4. Open `http://127.0.0.1:8080` in a browser, send one request to a host in
+   `EVENTGEN_ALLOWED_HOSTS`, and confirm the response, redirect prompt and
+   **Download session log** work. A host outside the allowlist should be
+   rejected.
+
+5. Stop the server with `Ctrl+C`, then continue to the container build.
+
 ### Run the container
 
 Build the image:
