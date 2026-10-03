@@ -9,9 +9,9 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from event_generator_cli import ResponseSnapshot
-from certificate_inspector import CertificateChainResult, CertificateDetails
-from web_app import (
+from app.http_client import ResponseSnapshot
+from app.certificate_inspector import CertificateChainResult, CertificateDetails
+from app.web_app import (
     ALLOWED_HOSTS_ENV,
     PASSWORD_ENV,
     USERNAME_ENV,
@@ -94,7 +94,7 @@ class WebAppTests(unittest.TestCase):
         self.assertTrue(hostname_is_allowed("dev.example.test", patterns))
         self.assertFalse(hostname_is_allowed("notexample.test", patterns))
 
-    @patch("web_app.socket.getaddrinfo")
+    @patch("app.web_app.socket.getaddrinfo")
     def test_target_validation_rejects_non_public_dns_answer(self, mock_dns) -> None:
         mock_dns.return_value = [
             (2, 1, 6, "", ("127.0.0.1", 443)),
@@ -103,7 +103,7 @@ class WebAppTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "non-public"):
             validate_target("https://example.test/", ("example.test",))
 
-    @patch("web_app.socket.getaddrinfo")
+    @patch("app.web_app.socket.getaddrinfo")
     def test_target_validation_accepts_allowed_public_address(self, mock_dns) -> None:
         mock_dns.return_value = [
             (2, 1, 6, "", ("8.8.8.8", 443)),
@@ -113,8 +113,8 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(result, "https://example.test/path")
 
-    @patch("web_app.validate_target", return_value="https://example.test/start")
-    @patch("web_app.send_once")
+    @patch("app.web_app.validate_target", return_value="https://example.test/start")
+    @patch("app.web_app.send_once")
     def test_request_is_logged_and_downloadable(self, mock_send, _mock_validate) -> None:
         mock_send.return_value = ResponseSnapshot(
             request_url="https://example.test/start",
@@ -157,7 +157,7 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertNotIn(self.password, download.get_data(as_text=True))
 
-    @patch("web_app.get_public_egress_ip", return_value="203.0.113.42")
+    @patch("app.web_app.get_public_egress_ip", return_value="203.0.113.42")
     def test_public_ip_is_added_to_session_log(self, _mock_ip) -> None:
         csrf = self.csrf_token()
 
@@ -175,8 +175,8 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Public egress IP: 203.0.113.42", response.data)
 
-    @patch("web_app.validate_target", return_value="https://example.test/")
-    @patch("web_app.inspect_certificate_chain")
+    @patch("app.web_app.validate_target", return_value="https://example.test/")
+    @patch("app.web_app.inspect_certificate_chain")
     def test_certificate_chain_is_displayed_and_logged(
         self,
         mock_inspect,

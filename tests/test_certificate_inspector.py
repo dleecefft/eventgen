@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from certificate_inspector import inspect_certificate_chain
+from app.certificate_inspector import inspect_certificate_chain
 
 
 class CertificateInspectorTests(unittest.TestCase):

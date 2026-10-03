@@ -29,7 +29,7 @@ from flask import (
     url_for,
 )
 
-from event_generator_cli import (
+from app.http_client import (
     PUBLIC_IP_ENDPOINT,
     TLS_WARNING,
     USER_AGENT_OPTIONS,
@@ -39,7 +39,7 @@ from event_generator_cli import (
     redirect_target,
     send_once,
 )
-from certificate_inspector import inspect_certificate_chain
+from app.certificate_inspector import inspect_certificate_chain
 
 
 APP_VERSION = "0.1.0"
