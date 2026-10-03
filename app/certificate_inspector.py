@@ -14,7 +14,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from OpenSSL import SSL
 
-from event_generator_cli import build_ssl_context, normalize_url
+from app.http_client import build_ssl_context, normalize_url
 
 
 @dataclass(frozen=True)

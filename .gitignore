@@ -3,4 +3,4 @@
 __pycache__/
 *.py[cod]
 session_logs/
-event_generator_sessions/
+eventgen_sessions/

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Event Generator{% endblock %}</title>
+  <title>{% block title %}EventGen{% endblock %}</title>
   <style>
     :root {
       color-scheme: dark;
@@ -60,7 +60,7 @@
 <body>
   <header>
     <nav>
-      <a class="brand" href="{{ url_for('index') }}">External Event Generator</a>
+      <a class="brand" href="{{ url_for('index') }}">EventGen</a>
       <div class="meta">
         <span>{{ session_event_count }} session events</span>
         <a href="{{ url_for('download_session_log') }}">Download session log</a>
