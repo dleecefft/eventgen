@@ -42,7 +42,7 @@ from app.certificate_inspector import inspect_certificate_chain
 from app.waf_tester import WafRunManager, create_waf_blueprint
 
 
-APP_VERSION = "0.2.1"
+APP_VERSION = "0.2.2"
 USERNAME_ENV = "EVENTGEN_USERNAME"
 PASSWORD_ENV = "EVENTGEN_PASSWORD"
 SECRET_KEY_ENV = "EVENTGEN_SECRET_KEY"

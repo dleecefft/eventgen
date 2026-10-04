@@ -112,13 +112,15 @@ class WafRunManagerTests(unittest.TestCase):
         self.log = MemoryLogStore()
         self.clock = FakeClock()
         self.sent: list[str] = []
+        self.sent_user_agents: list[str] = []
 
-        def sender(url: str, **_kwargs: object) -> ResponseSnapshot:
+        def sender(url: str, **kwargs: object) -> ResponseSnapshot:
             self.sent.append(url)
+            self.sent_user_agents.append(str(kwargs["user_agent"]))
             return ResponseSnapshot(
                 request_url=url,
-                validation_id=f"validation-{len(self.sent)}",
-                user_agent="test-agent",
+                validation_id=str(kwargs["validation_id"]),
+                user_agent=str(kwargs["user_agent"]),
                 status=200,
                 reason="OK",
                 headers=(("Date", "Sun, 04 Oct 2026 18:00:00 GMT"),),
@@ -167,9 +169,34 @@ class WafRunManagerTests(unittest.TestCase):
         result = self.manager.execute_next(self.run.run_id, "owner")
 
         self.assertEqual(result["target_date_header"], "Sun, 04 Oct 2026 18:00:00 GMT")
+        self.assertEqual(result["user_agent"], self.run.plan.user_agent)
         request_events = [event for _, event in self.log.events if event["event_type"] == "waf_request"]
         self.assertEqual(len(request_events), 1)
-        self.assertEqual(request_events[0]["result"]["validation_id"], "validation-1")
+        self.assertEqual(
+            request_events[0]["result"]["validation_id"],
+            self.run.plan.requests[0].validation_id,
+        )
+        self.assertEqual(
+            request_events[0]["result"]["user_agent"], self.run.plan.user_agent
+        )
+
+    def test_selected_user_agent_is_used_for_every_request_in_run(self) -> None:
+        expected = self.run.plan.user_agent
+        for index in range(len(self.run.plan.requests)):
+            if index:
+                self.clock.value += self.run.plan.interval_seconds
+            self.manager.execute_next(self.run.run_id, "owner")
+
+        self.assertEqual(
+            self.sent_user_agents,
+            [expected] * len(self.run.plan.requests),
+        )
+        request_events = [
+            event for _, event in self.log.events if event["event_type"] == "waf_request"
+        ]
+        self.assertTrue(
+            all(event["result"]["user_agent"] == expected for event in request_events)
+        )
 
     def test_manual_step_leaves_run_paused(self) -> None:
         self.manager.execute_next(self.run.run_id, "owner")

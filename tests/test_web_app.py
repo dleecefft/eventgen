@@ -327,6 +327,13 @@ class WebAppTests(unittest.TestCase):
         event_types = {event["event_type"] for event in report["events"]}
         self.assertIn("waf_run_created", event_types)
         self.assertIn("waf_request", event_types)
+        request_event = next(
+            event for event in report["events"] if event["event_type"] == "waf_request"
+        )
+        self.assertEqual(
+            request_event["result"]["user_agent"],
+            manager.runs[next(iter(manager.runs))].plan.user_agent,
+        )
 
 
 if __name__ == "__main__":

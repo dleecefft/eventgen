@@ -512,6 +512,7 @@ class WafRunManager:
                 "active_markers": list(planned.active_markers),
                 "marker_values": dict(planned.marker_values),
                 "url": planned.url,
+                "user_agent": run.plan.user_agent,
                 "tls_verified": run.plan.verify_tls,
                 "payload_pack_version": run.plan.payload_pack_version,
                 "payload_pack_digest": run.plan.payload_pack_digest,

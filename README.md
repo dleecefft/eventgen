@@ -122,7 +122,9 @@ combined as a Cartesian product. Runs are limited to 25 sequential requests,
 never follow redirects or retry automatically, and enforce 5-, 15-, or
 60-second spacing on the server. The browser must remain open for automatic
 progression; pause, single-step, stop, and partial log download remain
-available throughout the run.
+available throughout the run. The selected User-Agent is fixed in the immutable
+run plan, applied to every generated request, and repeated in every per-request
+session evidence record.
 
 The application refuses to start unless these environment variables exist:
 
