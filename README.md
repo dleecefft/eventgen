@@ -12,7 +12,32 @@ connections reach the target and are logged.
 | `cli/` | A standalone test application (see below). Not part of the image. |
 | `tests/` | Unit tests for both. |
 | `Dockerfile`, `gunicorn.conf.py`, `requirements.txt` | Container scaffolding. |
-| `docs/` | Planning documents. |
+| `docs/` | Design plans and the project change log. |
+
+## MVP validation status
+
+Version `0.2.2` is considered sufficient for the intended on-demand SOC
+testing workflow. The application has been deployed to Cloud Run by running the
+`cloud_install` scripts from a remote Linux server, and a captured external
+session confirmed:
+
+- independent IPv4 and IPv6 egress-address discovery;
+- a single-request response and explicit redirect-drop workflow;
+- preview and execution of a seven-request WAF test plan;
+- server-enforced 15-second request spacing;
+- unique validation IDs and a persistent selected User-Agent;
+- TLS-verification state, response metadata and redacted cookies in evidence;
+- completed-run and partial/final JSON session-log download.
+
+The automated suite currently contains 37 passing tests. Execution directly
+inside Google Cloud Shell remains expected but unconfirmed.
+
+This validation establishes that EventGen can generate controlled external
+requests and preserve useful correlation evidence. HTTP status codes do not by
+themselves prove WAF detection or blocking; analysts must confirm those outcomes
+in the destination's WAF, ingress or SIEM telemetry.
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the implementation record.
 
 ## About the CLI
 
