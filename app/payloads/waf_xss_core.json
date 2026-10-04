@@ -1,0 +1,66 @@
+{
+  "name": "eventgen-inert-xss-core",
+  "version": "1.0.0",
+  "payloads": [
+    {
+      "id": "xss-markup-001",
+      "category": "xss-basic-markup",
+      "logical_value": "<soc_testing>",
+      "description": "Inert custom markup tag for basic angle-bracket inspection.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    },
+    {
+      "id": "xss-attribute-001",
+      "category": "xss-attribute-boundary",
+      "logical_value": "\"><span data-soc_testing=\"1\">",
+      "description": "Inert quote and attribute-boundary marker.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    },
+    {
+      "id": "xss-event-001",
+      "category": "xss-event-handler",
+      "logical_value": "<svg onload=\"void('soc_testing')\">",
+      "description": "Event-handler syntax with no external callback or data access.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    },
+    {
+      "id": "xss-uri-001",
+      "category": "xss-uri-scheme",
+      "logical_value": "javascript:void('soc_testing')",
+      "description": "Script URI syntax with an inert expression.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    },
+    {
+      "id": "xss-malformed-001",
+      "category": "xss-malformed-markup",
+      "logical_value": "<soc_testing data-value='unclosed>",
+      "description": "Malformed inert markup for parser-normalization signatures.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    },
+    {
+      "id": "xss-encoding-001",
+      "category": "xss-encoding",
+      "logical_value": "<soc_testing data-entity=&#x73;>",
+      "description": "HTML character-reference marker for encoding signatures.",
+      "source": "OWASP XSS Filter Evasion Cheat Sheet",
+      "source_url": "https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html",
+      "reviewed_at": "2026-10-04",
+      "enabled": true
+    }
+  ]
+}

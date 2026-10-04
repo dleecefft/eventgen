@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}WAF run {{ run.run_id[:8] }} · EventGen{% endblock %}
+{% block content %}
+  <h1>WAF run <code>{{ run.run_id[:8] }}</code></h1>
+  {% if not run.plan.verify_tls %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}
+  <div class="grid">
+    <section class="card">
+      <h2>Run status <span class="status">{{ run.state }}</span></h2>
+      <dl>
+        <dt>Progress</dt><dd>{{ run.current_index }} / {{ run.plan.requests|length }}</dd>
+        <dt>Interval</dt><dd>{{ run.plan.interval_seconds }} seconds</dd>
+        <dt>Last request</dt><dd>{{ run.last_request_at_utc or "Not sent" }}</dd>
+        <dt>Next eligible</dt><dd>{% if seconds_until_next > 0 %}in {{ '%.1f'|format(seconds_until_next) }} seconds{% else %}now{% endif %}</dd>
+        <dt>Stopped because</dt><dd>{{ run.stop_reason or "—" }}</dd>
+      </dl>
+      {% if not run.is_finished %}
+        <div class="actions">
+          {% if run.state == "running" %}
+            <form method="post" action="{{ url_for('waf.pause', run_id=run.run_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary" type="submit">Pause</button></form>
+          {% else %}
+            <form method="post" action="{{ url_for('waf.resume', run_id=run.run_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit">Start / resume automatic run</button></form>
+            <form method="post" action="{{ url_for('waf.execute_next', run_id=run.run_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="secondary" type="submit" {% if seconds_until_next > 0 %}disabled{% endif %}>Send next only</button></form>
+          {% endif %}
+          <form method="post" action="{{ url_for('waf.cancel', run_id=run.run_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="danger" type="submit">Stop run</button></form>
+        </div>
+      {% endif %}
+    </section>
+    <aside class="card">
+      <h2>Evidence</h2>
+      <p class="muted">Every completed request is appended immediately to disposable session storage.</p>
+      <a class="button secondary" href="{{ url_for('download_session_log') }}">Download partial JSON log</a>
+    </aside>
+  </div>
+  <section class="card" style="margin-top: 22px">
+    <h2>Results</h2>
+    {% if run.results %}<div class="wide-table"><table>
+      <thead><tr><th>#</th><th>Payload/input</th><th>Observation</th><th>Validation ID</th><th>Elapsed</th><th>Redirect</th></tr></thead>
+      <tbody>{% for result in run.results|reverse %}<tr>
+        <td>{{ result.sequence }}</td>
+        <td><code>{{ result.payload_id }}</code><br>{% if result.active_markers %}{{ result.active_markers|join(', ') }}{% else %}baseline{% endif %}</td>
+        <td>{% if result.outcome == 'response' %}HTTP {{ result.status }} {{ result.reason }}{% else %}<span class="notice error">{{ result.error }}</span>{% endif %}</td>
+        <td><code>{{ result.validation_id or '—' }}</code></td>
+        <td>{{ result.elapsed_ms }} ms</td>
+        <td>{{ result.redirect_location or '—' }}</td>
+      </tr>{% endfor %}</tbody>
+    </table></div>{% else %}<p class="muted">No requests have been sent.</p>{% endif %}
+  </section>
+  {% if run.state == "running" and not run.is_finished %}
+    <form id="waf-auto-next" method="post" action="{{ url_for('waf.execute_next', run_id=run.run_id) }}" data-delay-ms="{{ ((seconds_until_next * 1000)|round|int) + 250 }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    </form>
+  {% endif %}
+{% endblock %}
+{% block scripts %}{% if run.state == "running" and not run.is_finished %}<script src="{{ url_for('static', filename='waf_run.js') }}" defer></script>{% endif %}{% endblock %}

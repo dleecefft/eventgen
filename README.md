@@ -8,7 +8,7 @@ connections reach the target and are logged.
 
 | Path | Purpose |
 | --- | --- |
-| `app/` | The deployed Flask application (`web_app.py`, `http_client.py`, `certificate_inspector.py`, templates). This is the only code copied into the Docker image. |
+| `app/` | The deployed Flask application (`web_app.py`, focused request/certificate/WAF modules, payload data, templates, and static assets). This is the only code copied into the Docker image. |
 | `cli/` | A standalone test application (see below). Not part of the image. |
 | `tests/` | Unit tests for both. |
 | `Dockerfile`, `gunicorn.conf.py`, `requirements.txt` | Container scaffolding. |
@@ -97,6 +97,21 @@ The Flask application preserves the CLI's core workflow in a browser:
 - explicit Proceed or Drop decisions for redirects;
 - public egress-IP lookup; and
 - an authenticated, downloadable JSON session log.
+
+The **WAF Tester** link opens a deliberately bounded Intruder-style workflow.
+Enter a complete GET URL containing `[replaceme]` and optionally
+`[replaceme2]` and `[replaceme3]`. Markers may appear in path segments or query
+parameter values. Preview shows every encoded URL before any target request is
+sent.
+
+With multiple markers, **Isolated positions** tests one input at a time and
+places a run-specific benign control in the others. **Synchronized positions**
+places the same payload in all marked inputs. Different payloads are never
+combined as a Cartesian product. Runs are limited to 25 sequential requests,
+never follow redirects or retry automatically, and enforce 5-, 15-, or
+60-second spacing on the server. The browser must remain open for automatic
+progression; pause, single-step, stop, and partial log download remain
+available throughout the run.
 
 The application refuses to start unless these environment variables exist:
 

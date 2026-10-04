@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.http_client import ResponseSnapshot
+from app.http_client import PublicEgressAddresses, ResponseSnapshot, get_public_egress_ips
 from app.certificate_inspector import CertificateChainResult, CertificateDetails
 from app.web_app import (
     ALLOWED_HOSTS_ENV,
@@ -157,7 +157,15 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertNotIn(self.password, download.get_data(as_text=True))
 
-    @patch("app.web_app.get_public_egress_ip", return_value="203.0.113.42")
+    @patch(
+        "app.web_app.get_public_egress_ips",
+        return_value=PublicEgressAddresses(
+            ipv4="203.0.113.42",
+            ipv6="2001:db8::42",
+            ipv4_service="https://ipv4.example.test",
+            ipv6_service="https://ipv6.example.test",
+        ),
+    )
     def test_public_ip_is_added_to_session_log(self, _mock_ip) -> None:
         csrf = self.csrf_token()
 
@@ -173,7 +181,30 @@ class WebAppTests(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b"Public egress IP: 203.0.113.42", response.data)
+        self.assertIn(b"IPv4: 203.0.113.42", response.data)
+        self.assertIn(b"IPv6: 2001:db8::42", response.data)
+        report = json.loads(
+            self.client.get("/session-log.json", headers=self.auth_headers()).data
+        )
+        event = next(
+            item for item in report["events"] if item["event_type"] == "public_ip_observed"
+        )
+        self.assertEqual(event["public_ips"]["ipv4"], "203.0.113.42")
+        self.assertEqual(event["public_ips"]["ipv6"], "2001:db8::42")
+
+    @patch(
+        "app.http_client.get_public_egress_ip",
+        side_effect=("203.0.113.42", ConnectionError("IPv6 route unavailable")),
+    )
+    def test_dual_ip_lookup_preserves_ipv4_when_ipv6_is_unavailable(self, _mock_ip) -> None:
+        addresses = get_public_egress_ips(
+            ipv4_endpoint="https://ipv4.example.test",
+            ipv6_endpoint="https://ipv6.example.test",
+        )
+
+        self.assertEqual(addresses.ipv4, "203.0.113.42")
+        self.assertIsNone(addresses.ipv6)
+        self.assertEqual(addresses.ipv6_error, "IPv6 route unavailable")
 
     @patch("app.web_app.validate_target", return_value="https://example.test/")
     @patch("app.web_app.inspect_certificate_chain")
@@ -230,6 +261,71 @@ class WebAppTests(unittest.TestCase):
             if event["event_type"] == "certificate_chain_observed"
         )
         self.assertEqual(chain_event["certificate_chain"]["certificates"][0]["role"], "leaf")
+
+    @patch("app.web_app.validate_target", side_effect=lambda url, _hosts: url)
+    def test_waf_preview_and_run_are_integrated(self, _mock_validate) -> None:
+        csrf = self.csrf_token()
+        configure = self.client.get("/waf", headers=self.auth_headers())
+        self.assertEqual(configure.status_code, 200)
+        self.assertIn(b"Configure a WAF validation run", configure.data)
+
+        preview = self.client.post(
+            "/waf/preview",
+            headers=self.auth_headers(),
+            data={
+                "csrf_token": csrf,
+                "url_template": "https://example.test/search?customer=[replaceme]&city=[replaceme2]",
+                "substitution_mode": "synchronized",
+                "rate_name": "standard",
+                "user_agent_index": "0",
+                "verify_tls": "on",
+            },
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertIn(b"Review the exact WAF request plan", preview.data)
+        self.assertIn(b"7 including the benign baseline", preview.data)
+
+        manager = self.app.extensions["eventgen_waf_manager"]
+        preview_id = next(iter(manager.previews))
+        created = self.client.post(
+            "/waf/runs",
+            headers=self.auth_headers(),
+            data={"csrf_token": csrf, "preview_id": preview_id},
+        )
+        self.assertEqual(created.status_code, 302)
+        self.assertIn("/waf/runs/", created.headers["Location"])
+
+        run_url = created.headers["Location"]
+        run_page = self.client.get(run_url, headers=self.auth_headers())
+        self.assertEqual(run_page.status_code, 200)
+        self.assertIn(b"No requests have been sent", run_page.data)
+
+        manager.sender = lambda url, **_kwargs: ResponseSnapshot(
+            request_url=url,
+            validation_id=str(_kwargs["validation_id"]),
+            user_agent="test-agent",
+            status=403,
+            reason="Forbidden",
+            headers=(("Content-Type", "text/plain"),),
+            body=b"<script>not rendered as markup</script>",
+            body_truncated=False,
+            tls_verified=True,
+        )
+        stepped = self.client.post(
+            f"{run_url}/next",
+            headers=self.auth_headers(),
+            data={"csrf_token": csrf},
+            follow_redirects=True,
+        )
+        self.assertEqual(stepped.status_code, 200)
+        self.assertIn(b"HTTP 403 Forbidden", stepped.data)
+
+        report = json.loads(
+            self.client.get("/session-log.json", headers=self.auth_headers()).data
+        )
+        event_types = {event["event_type"] for event in report["events"]}
+        self.assertIn("waf_run_created", event_types)
+        self.assertIn("waf_request", event_types)
 
 
 if __name__ == "__main__":

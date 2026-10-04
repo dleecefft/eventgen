@@ -13,6 +13,7 @@ from cli.eventgen_cli import (
     USER_AGENT_OPTIONS,
     build_ssl_context,
     get_public_egress_ip,
+    get_public_egress_ips,
     normalize_url,
     redirect_target,
     select_user_agent,
@@ -43,6 +44,12 @@ class FixtureHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"ip":"203.0.113.42"}')
+            return
+        if self.path == "/ip6":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"ip":"2001:db8::42"}')
             return
         if self.path == "/bad-ip":
             self.send_response(200)
@@ -143,6 +150,17 @@ class CliTests(unittest.TestCase):
     def test_get_public_egress_ip_rejects_invalid_address(self) -> None:
         with self.assertRaisesRegex(ConnectionError, "invalid address"):
             get_public_egress_ip(endpoint=f"{self.base_url}/bad-ip")
+
+    def test_get_public_egress_ips_queries_each_address_family(self) -> None:
+        addresses = get_public_egress_ips(
+            ipv4_endpoint=f"{self.base_url}/ip",
+            ipv6_endpoint=f"{self.base_url}/ip6",
+        )
+
+        self.assertEqual(addresses.ipv4, "203.0.113.42")
+        self.assertEqual(addresses.ipv6, "2001:db8::42")
+        self.assertIsNone(addresses.ipv4_error)
+        self.assertIsNone(addresses.ipv6_error)
 
     def test_unverified_ssl_context_is_explicit(self) -> None:
         context = build_ssl_context(False)

@@ -102,12 +102,19 @@ must not include post-exploitation behavior.
 
 Each run must support:
 
-- selecting exactly where to mutate: one query value, header, path segment, or
-  body field;
+- accepting a complete GET URL containing one to three named markers:
+  `[replaceme]`, `[replaceme2]`, and `[replaceme3]`, placed in path segments or
+  query-parameter values;
+- offering isolated-position substitution by default and synchronized
+  substitution when testing combined inputs, without generating Cartesian
+  payload combinations;
+- replacing active markers with one reviewed, deterministically encoded payload
+  at a time and inactive markers with a run-specific benign control;
 - previewing every mutation before execution;
 - one mutation per request by default so log evidence is unambiguous;
 - a hard maximum request count and runtime;
-- a low default request rate with no concurrency;
+- three server-enforced, sequential rate profiles: one request every 5 seconds
+  maximum, every 15 seconds by default, and every 60 seconds for the slow mode;
 - pause, stop, and single-step operation;
 - per-payload results with correlation IDs; and
 - a configurable stop condition, such as first block response.
@@ -116,6 +123,10 @@ Payload sources will be wrapped behind a simple provider interface. The first
 release should ship a small reviewed local corpus. External corpora such as
 SecLists or FuzzDB can be considered later only after licensing, provenance,
 size, and payload safety are reviewed; versions must be pinned.
+
+The detailed MVP workflow, Cloud Run step-execution model, payload provenance,
+rate enforcement, evidence schema, and acceptance tests are specified in
+[WAF_TESTER_PLAN.md](WAF_TESTER_PLAN.md).
 
 ### 4. Evidence and reporting
 
@@ -297,8 +308,17 @@ downstream log using its correlation ID.
 ### Phase 3: tampering and WAF profiles
 
 - Add request cloning and diffs.
-- Add the payload provider interface and a small reviewed built-in corpus.
-- Add preview, single-step, bounded sequential runs, cancellation, and results.
+- Add the payload provider interface and a small, versioned, reviewed built-in
+  XSS corpus inspired by OWASP but stripped of external callbacks, data access,
+  persistence, and post-exploitation behavior.
+- Add one-to-three-marker URL-template and query-parameter validation, isolated
+  and synchronized substitution modes, and exact preview of encoded GET
+  requests.
+- Add server-enforced 5/15/60-second profiles, with 15 seconds as the default,
+  one active run per instance, no concurrency, and no automatic retries.
+- Add request-driven single-step execution suitable for Cloud Run request-based
+  CPU, followed by browser-controlled automatic stepping, pause, resume,
+  cancellation, partial evidence download, and results.
 
 Exit criterion: an operator can demonstrate a chosen test marker being logged,
 detected, or blocked without exceeding the configured traffic envelope.
