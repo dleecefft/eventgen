@@ -8,11 +8,36 @@ connections reach the target and are logged.
 
 | Path | Purpose |
 | --- | --- |
-| `app/` | The deployed Flask application (`web_app.py`, `http_client.py`, `certificate_inspector.py`, templates). This is the only code copied into the Docker image. |
+| `app/` | The deployed Flask application (`web_app.py`, focused request/certificate/WAF modules, payload data, templates, and static assets). This is the only code copied into the Docker image. |
 | `cli/` | A standalone test application (see below). Not part of the image. |
 | `tests/` | Unit tests for both. |
 | `Dockerfile`, `gunicorn.conf.py`, `requirements.txt` | Container scaffolding. |
-| `docs/` | Planning documents. |
+| `docs/` | Design plans and the project change log. |
+
+## MVP validation status
+
+Version `0.2.2` is considered sufficient for the intended on-demand SOC
+testing workflow. The application has been deployed to Cloud Run by running the
+`cloud_install` scripts from a remote Linux server, and a captured external
+session confirmed:
+
+- independent IPv4 and IPv6 egress-address discovery;
+- a single-request response and explicit redirect-drop workflow;
+- preview and execution of a seven-request WAF test plan;
+- server-enforced 15-second request spacing;
+- unique validation IDs and a persistent selected User-Agent;
+- TLS-verification state, response metadata and redacted cookies in evidence;
+- completed-run and partial/final JSON session-log download.
+
+The automated suite currently contains 37 passing tests. Execution directly
+inside Google Cloud Shell remains expected but unconfirmed.
+
+This validation establishes that EventGen can generate controlled external
+requests and preserve useful correlation evidence. HTTP status codes do not by
+themselves prove WAF detection or blocking; analysts must confirm those outcomes
+in the destination's WAF, ingress or SIEM telemetry.
+
+See [docs/CHANGELOG.md](docs/CHANGELOG.md) for the implementation record.
 
 ## About the CLI
 
@@ -56,19 +81,30 @@ Prisma Browser's vendor default is Chrome-compatible and does not contain a
 universal Prisma identifier. The included profile models Palo Alto's documented
 additional-component configuration by appending `PrismaAccessBrowser/1.0`.
 
-Choose **Show public egress IP** to make one request to an external IP-echo
-service and display the public IPv4 or IPv6 address it observes after NAT. This
-is the address to search for in ingress, proxy, and WAF records. The default
-service is `https://api64.ipify.org?format=json`; override it when required:
+Choose **Show public egress IP** to make separate requests to IPv4-only and
+IPv6-only echo services. The results show both outbound paths when both are
+available; a failed IPv6 lookup does not discard a valid IPv4 result. Search
+for the address family actually used by the tested destination in ingress,
+proxy, and WAF records.
+
+The defaults are `https://api.ipify.org?format=json` for IPv4 and
+`https://api6.ipify.org?format=json` for IPv6. Override either endpoint when an
+organization-approved service is required:
 
 ```powershell
-$env:EVENTGEN_IP_ECHO_URL = "https://approved.example/ip"
+$env:EVENTGEN_IPV4_ECHO_URL = "https://approved.example/ipv4"
+$env:EVENTGEN_IPV6_ECHO_URL = "https://approved.example/ipv6"
 python -m cli.eventgen_cli
 ```
 
-The IP lookup discloses the instance's public address and selected User-Agent to
-the configured service. Use an organization-approved endpoint if that matters
-for your environment.
+`EVENTGEN_IP_ECHO_URL` remains a backward-compatible IPv4 endpoint override.
+New deployments should use the address-family-specific variables.
+
+Each lookup discloses the corresponding public address and selected User-Agent
+to its configured service. An IPv4-only legacy target will be reached over
+IPv4, but a dual-stack target may select either family. Echo-service results
+are therefore useful search candidates, not proof of the source address seen
+by every destination; the target's logs remain authoritative.
 
 TLS certificate verification is enabled by default. It can be toggled from the
 main menu for a site with an invalid or privately issued certificate. The CLI
@@ -97,6 +133,23 @@ The Flask application preserves the CLI's core workflow in a browser:
 - explicit Proceed or Drop decisions for redirects;
 - public egress-IP lookup; and
 - an authenticated, downloadable JSON session log.
+
+The **WAF Tester** link opens a deliberately bounded Intruder-style workflow.
+Enter a complete GET URL containing `[replaceme]` and optionally
+`[replaceme2]` and `[replaceme3]`. Markers may appear in path segments or query
+parameter values. Preview shows every encoded URL before any target request is
+sent.
+
+With multiple markers, **Isolated positions** tests one input at a time and
+places a run-specific benign control in the others. **Synchronized positions**
+places the same payload in all marked inputs. Different payloads are never
+combined as a Cartesian product. Runs are limited to 25 sequential requests,
+never follow redirects or retry automatically, and enforce 5-, 15-, or
+60-second spacing on the server. The browser must remain open for automatic
+progression; pause, single-step, stop, and partial log download remain
+available throughout the run. The selected User-Agent is fixed in the immutable
+run plan, applied to every generated request, and repeated in every per-request
+session evidence record.
 
 The application refuses to start unless these environment variables exist:
 
@@ -217,6 +270,15 @@ docker run --rm --env-file .env --publish 127.0.0.1:8080:8080 eventgen:mvp
 The image runs as a non-root user with one Gunicorn worker and four threads.
 Keep the hosted service at one instance for this MVP because session evidence is
 stored on that instance's disposable filesystem.
+
+### Cloud Run deployment scripts
+
+The [`cloud_install`](cloud_install/README.md) workflow has been successfully
+run from a remote Linux server connected to Google Cloud with an authenticated
+`gcloud` CLI. Running the same scripts directly in Google Cloud Shell has not
+yet been confirmed, but is expected to work. That distinction is intentional:
+the remote Linux result is verified; Cloud Shell support is currently an
+expectation rather than a recorded test result.
 
 ### Session evidence and shutdown
 

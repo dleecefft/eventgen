@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}WAF Tester · EventGen{% endblock %}
+{% block content %}
+  <h1>Configure a WAF validation run</h1>
+  <p class="lede">Build a preview of controlled GET requests. Nothing is sent to the target until you confirm the preview and start or single-step the run.</p>
+  <div class="grid">
+    <section class="card">
+      <form class="stack" method="post" action="{{ url_for('waf.preview') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label>URL template
+          <input type="text" name="url_template" placeholder="https://testingsite.com/search?customer=[replaceme]&city=[replaceme2]" required autofocus>
+        </label>
+        <p class="muted">Use one to three ordered markers: <code>[replaceme]</code>, <code>[replaceme2]</code>, and <code>[replaceme3]</code>. Put them in path segments or query-parameter values.</p>
+
+        <fieldset>
+          <legend>Multiple-input behavior</legend>
+          <div class="radio-group">
+            <label class="radio"><input type="radio" name="substitution_mode" value="isolated" checked><span><strong>Isolated positions</strong><br><span class="muted">Test one marked parameter at a time; use a benign control in the others.</span></span></label>
+            <label class="radio"><input type="radio" name="substitution_mode" value="synchronized"><span><strong>Synchronized positions</strong><br><span class="muted">Place the same payload in all marked parameters.</span></span></label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Rate</legend>
+          <div class="radio-group">
+            <label class="radio"><input type="radio" name="rate_name" value="fast"><span>Every 5 seconds · maximum</span></label>
+            <label class="radio"><input type="radio" name="rate_name" value="standard" checked><span>Every 15 seconds · default</span></label>
+            <label class="radio"><input type="radio" name="rate_name" value="slow"><span>Every 60 seconds · minimum</span></label>
+          </div>
+        </fieldset>
+        <label class="check"><input type="checkbox" name="confirm_fast">I explicitly authorize the 5-second rate if selected</label>
+
+        <label>User-Agent
+          <select name="user_agent_index">
+            {% for option in user_agents %}<option value="{{ loop.index0 }}">{{ loop.index0 }} · {{ option.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="verify_tls" checked>Verify the server TLS certificate</label>
+        <button type="submit">Preview exact requests</button>
+      </form>
+    </section>
+    <aside class="stack">
+      <section class="card">
+        <h2>Payload pack</h2>
+        <dl>
+          <dt>Name</dt><dd>{{ payload_pack.name }}</dd>
+          <dt>Version</dt><dd>{{ payload_pack.version }}</dd>
+          <dt>Payloads</dt><dd>{{ payload_pack.payloads|length }}</dd>
+          <dt>SHA-256</dt><dd><code>{{ payload_pack.digest_sha256 }}</code></dd>
+        </dl>
+      </section>
+      <section class="card">
+        <h2>Safety boundary</h2>
+        <p class="muted">GET only, no redirect following, no retries, one request at a time, and no more than 25 requests in a run. Generated destinations must remain inside the configured target policy.</p>
+      </section>
+    </aside>
+  </div>
+{% endblock %}

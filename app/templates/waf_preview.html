@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}WAF run preview · EventGen{% endblock %}
+{% block content %}
+  <h1>Review the exact WAF request plan</h1>
+  {% if not plan.verify_tls %}<div class="notice warning">{{ tls_warning }}</div>{% endif %}
+  <section class="card">
+    <dl>
+      <dt>Template</dt><dd><code>{{ plan.url_template }}</code></dd>
+      <dt>Mode</dt><dd>{{ plan.substitution_mode }}</dd>
+      <dt>Requests</dt><dd>{{ plan.requests|length }} including the benign baseline</dd>
+      <dt>Rate</dt><dd>At least {{ plan.interval_seconds }} seconds between request starts</dd>
+      <dt>Minimum spacing time</dt><dd>{{ plan.estimated_spacing_seconds }} seconds plus response time</dd>
+      <dt>User-Agent</dt><dd><code>{{ plan.user_agent }}</code></dd>
+      <dt>TLS verified</dt><dd>{{ "Yes" if plan.verify_tls else "NO" }}</dd>
+      <dt>Payload pack</dt><dd>{{ plan.payload_pack_name }} {{ plan.payload_pack_version }} · <code>{{ plan.payload_pack_digest }}</code></dd>
+    </dl>
+  </section>
+  <section class="card" style="margin-top: 22px">
+    <h2>Marker positions</h2>
+    <table><tbody>{% for position in plan.marker_positions %}<tr><th><code>{{ position.marker }}</code></th><td>{{ position.location }}{% if position.parameter_name %} · parameter <code>{{ position.parameter_name }}</code>{% endif %}</td></tr>{% endfor %}</tbody></table>
+  </section>
+  <section class="card" style="margin-top: 22px">
+    <h2>Generated requests</h2>
+    <div class="wide-table"><table>
+      <thead><tr><th>#</th><th>Payload</th><th>Validation ID</th><th>Active input</th><th>Exact URL</th></tr></thead>
+      <tbody>{% for item in plan.requests %}<tr><td>{{ item.sequence }}</td><td><code>{{ item.payload_id }}</code></td><td><code>{{ item.validation_id }}</code></td><td>{% if item.active_markers %}{% for marker in item.active_markers %}<code>{{ marker }}</code>{% if not loop.last %}, {% endif %}{% endfor %}{% else %}baseline{% endif %}</td><td><code>{{ item.url }}</code></td></tr>{% endfor %}</tbody>
+    </table></div>
+  </section>
+  <div class="actions" style="margin-top: 22px">
+    <form method="post" action="{{ url_for('waf.create_run_route') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="preview_id" value="{{ plan.preview_id }}">
+      <button type="submit">Confirm and create run</button>
+    </form>
+    <a class="button secondary" href="{{ url_for('waf.configure') }}">Discard and edit</a>
+  </div>
+{% endblock %}

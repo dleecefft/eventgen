@@ -24,10 +24,17 @@ DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_MAX_REDIRECTS = 10
 CORRELATION_HEADER = "X-Validation-ID"
-PUBLIC_IP_ENDPOINT = os.environ.get(
-    "EVENTGEN_IP_ECHO_URL",
-    "https://api64.ipify.org?format=json",
+PUBLIC_IPV4_ENDPOINT = os.environ.get(
+    "EVENTGEN_IPV4_ECHO_URL",
+    os.environ.get("EVENTGEN_IP_ECHO_URL", "https://api.ipify.org?format=json"),
 )
+PUBLIC_IPV6_ENDPOINT = os.environ.get(
+    "EVENTGEN_IPV6_ECHO_URL",
+    "https://api6.ipify.org?format=json",
+)
+# Backward-compatible name for callers that need one address. It now selects
+# the IPv4-only endpoint because a universal endpoint cannot reveal both paths.
+PUBLIC_IP_ENDPOINT = PUBLIC_IPV4_ENDPOINT
 
 TLS_WARNING = (
     "WARNING: TLS certificate verification is DISABLED. "
@@ -125,6 +132,30 @@ class ResponseSnapshot:
         return None
 
 
+@dataclass(frozen=True)
+class PublicEgressAddresses:
+    ipv4: str | None
+    ipv6: str | None
+    ipv4_service: str
+    ipv6_service: str
+    ipv4_error: str | None = None
+    ipv6_error: str | None = None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "ipv4": self.ipv4,
+            "ipv6": self.ipv6,
+            "services": {
+                "ipv4": self.ipv4_service,
+                "ipv6": self.ipv6_service,
+            },
+            "errors": {
+                "ipv4": self.ipv4_error,
+                "ipv6": self.ipv6_error,
+            },
+        }
+
+
 def normalize_url(raw_url: str) -> str:
     """Normalize an operator-entered URL and reject ambiguous forms."""
 
@@ -167,11 +198,12 @@ def send_once(
     user_agent: str = DEFAULT_USER_AGENT.value,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
+    validation_id: str | None = None,
 ) -> ResponseSnapshot:
     """Send one GET and capture its response without following redirects."""
 
     normalized_url = normalize_url(url)
-    validation_id = str(uuid.uuid4())
+    validation_id = validation_id or str(uuid.uuid4())
     request = Request(
         normalized_url,
         method="GET",
@@ -241,4 +273,45 @@ def get_public_egress_ip(
     except (KeyError, TypeError, ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise ConnectionError("IP echo service returned an invalid address.") from exc
     return str(parsed_address)
+
+
+def get_public_egress_ips(
+    *,
+    ipv4_endpoint: str = PUBLIC_IPV4_ENDPOINT,
+    ipv6_endpoint: str = PUBLIC_IPV6_ENDPOINT,
+    verify_tls: bool = True,
+    user_agent: str = DEFAULT_USER_AGENT.value,
+) -> PublicEgressAddresses:
+    """Probe IPv4 and IPv6 independently and preserve partial success."""
+
+    addresses: dict[int, str | None] = {4: None, 6: None}
+    errors: dict[int, str | None] = {4: None, 6: None}
+    for version, endpoint in ((4, ipv4_endpoint), (6, ipv6_endpoint)):
+        try:
+            address = get_public_egress_ip(
+                endpoint=endpoint,
+                verify_tls=verify_tls,
+                user_agent=user_agent,
+            )
+            if ipaddress.ip_address(address).version != version:
+                raise ConnectionError(
+                    f"IPv{version} echo service returned an IPv{ipaddress.ip_address(address).version} address."
+                )
+            addresses[version] = address
+        except (ConnectionError, ValueError) as exc:
+            errors[version] = str(exc)
+
+    if addresses[4] is None and addresses[6] is None:
+        raise ConnectionError(
+            "Neither IP echo service returned a usable address. "
+            f"IPv4: {errors[4]}; IPv6: {errors[6]}"
+        )
+    return PublicEgressAddresses(
+        ipv4=addresses[4],
+        ipv6=addresses[6],
+        ipv4_service=ipv4_endpoint,
+        ipv6_service=ipv6_endpoint,
+        ipv4_error=errors[4],
+        ipv6_error=errors[6],
+    )
 

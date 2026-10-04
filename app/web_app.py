@@ -30,19 +30,19 @@ from flask import (
 )
 
 from app.http_client import (
-    PUBLIC_IP_ENDPOINT,
     TLS_WARNING,
     USER_AGENT_OPTIONS,
     ResponseSnapshot,
-    get_public_egress_ip,
+    get_public_egress_ips,
     normalize_url,
     redirect_target,
     send_once,
 )
 from app.certificate_inspector import inspect_certificate_chain
+from app.waf_tester import WafRunManager, create_waf_blueprint
 
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.2"
 USERNAME_ENV = "EVENTGEN_USERNAME"
 PASSWORD_ENV = "EVENTGEN_PASSWORD"
 SECRET_KEY_ENV = "EVENTGEN_SECRET_KEY"
@@ -256,6 +256,14 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
             session["csrf_token"] = value
         return value
 
+    waf_manager = WafRunManager(
+        target_validator=lambda url: validate_target(url, allowed_hosts),
+        log_store=log_store,
+        url_sanitizer=sanitize_url_for_log,
+        response_header_sanitizer=sanitize_response_headers,
+    )
+    app.extensions["eventgen_waf_manager"] = waf_manager
+
     def unauthorized() -> Response:
         return Response(
             "Authentication required.\n",
@@ -415,7 +423,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
             user_agent = USER_AGENT_OPTIONS[user_agent_index]
             if user_agent_index < 0:
                 raise IndexError
-            address = get_public_egress_ip(
+            addresses = get_public_egress_ips(
                 verify_tls=verify_tls,
                 user_agent=user_agent.value,
             )
@@ -430,13 +438,22 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
                 session_id(),
                 {
                     "event_type": "public_ip_observed",
-                    "public_ip": address,
-                    "service": PUBLIC_IP_ENDPOINT,
+                    # Preserve the original single-address fields for existing
+                    # report consumers while adding explicit dual-stack data.
+                    "public_ip": addresses.ipv4 or addresses.ipv6,
+                    "service": addresses.ipv4_service
+                    if addresses.ipv4
+                    else addresses.ipv6_service,
+                    "public_ips": addresses.to_dict(),
                     "tls_verified": verify_tls,
                     "user_agent": user_agent.value,
                 },
             )
-            flash(f"Public egress IP: {address}", "success")
+            observations = [
+                f"IPv4: {addresses.ipv4 or 'unavailable'}",
+                f"IPv6: {addresses.ipv6 or 'unavailable'}",
+            ]
+            flash(f"Public egress IPs — {'; '.join(observations)}", "success")
         return redirect(url_for("index"))
 
     @app.post("/certificate-chain")
@@ -499,5 +516,13 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
             download_name=f"eventgen-session-{current_session_id}.json",
             max_age=0,
         )
+
+    app.register_blueprint(
+        create_waf_blueprint(
+            manager=waf_manager,
+            session_id=session_id,
+            target_validator=lambda url: validate_target(url, allowed_hosts),
+        )
+    )
 
     return app

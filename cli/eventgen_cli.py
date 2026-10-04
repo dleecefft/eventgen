@@ -24,10 +24,15 @@ DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_MAX_REDIRECTS = 10
 CORRELATION_HEADER = "X-Validation-ID"
-PUBLIC_IP_ENDPOINT = os.environ.get(
-    "EVENTGEN_IP_ECHO_URL",
-    "https://api64.ipify.org?format=json",
+PUBLIC_IPV4_ENDPOINT = os.environ.get(
+    "EVENTGEN_IPV4_ECHO_URL",
+    os.environ.get("EVENTGEN_IP_ECHO_URL", "https://api.ipify.org?format=json"),
 )
+PUBLIC_IPV6_ENDPOINT = os.environ.get(
+    "EVENTGEN_IPV6_ECHO_URL",
+    "https://api6.ipify.org?format=json",
+)
+PUBLIC_IP_ENDPOINT = PUBLIC_IPV4_ENDPOINT
 
 TLS_WARNING = (
     "WARNING: TLS certificate verification is DISABLED. "
@@ -40,6 +45,16 @@ class UserAgentOption:
     name: str
     value: str
     note: str = ""
+
+
+@dataclass(frozen=True)
+class PublicEgressAddresses:
+    ipv4: str | None
+    ipv6: str | None
+    ipv4_service: str
+    ipv6_service: str
+    ipv4_error: str | None = None
+    ipv6_error: str | None = None
 
 
 # Version references reviewed 2026-10-03. Desktop Chromium user agents use the
@@ -243,6 +258,47 @@ def get_public_egress_ip(
     return str(parsed_address)
 
 
+def get_public_egress_ips(
+    *,
+    ipv4_endpoint: str = PUBLIC_IPV4_ENDPOINT,
+    ipv6_endpoint: str = PUBLIC_IPV6_ENDPOINT,
+    verify_tls: bool = True,
+    user_agent: str = DEFAULT_USER_AGENT.value,
+) -> PublicEgressAddresses:
+    """Probe IPv4 and IPv6 independently and preserve partial success."""
+
+    addresses: dict[int, str | None] = {4: None, 6: None}
+    errors: dict[int, str | None] = {4: None, 6: None}
+    for version, endpoint in ((4, ipv4_endpoint), (6, ipv6_endpoint)):
+        try:
+            address = get_public_egress_ip(
+                endpoint=endpoint,
+                verify_tls=verify_tls,
+                user_agent=user_agent,
+            )
+            observed_version = ipaddress.ip_address(address).version
+            if observed_version != version:
+                raise ConnectionError(
+                    f"IPv{version} echo service returned an IPv{observed_version} address."
+                )
+            addresses[version] = address
+        except (ConnectionError, ValueError) as exc:
+            errors[version] = str(exc)
+    if addresses[4] is None and addresses[6] is None:
+        raise ConnectionError(
+            "Neither IP echo service returned a usable address. "
+            f"IPv4: {errors[4]}; IPv6: {errors[6]}"
+        )
+    return PublicEgressAddresses(
+        ipv4=addresses[4],
+        ipv6=addresses[6],
+        ipv4_service=ipv4_endpoint,
+        ipv6_service=ipv6_endpoint,
+        ipv4_error=errors[4],
+        ipv6_error=errors[6],
+    )
+
+
 def _print_rule(character: str = "-") -> None:
     print(character * 72)
 
@@ -405,16 +461,22 @@ def main() -> int:
             selected_user_agent = select_user_agent(selected_user_agent)
             print(f"User-Agent set to: {selected_user_agent.name}")
         elif choice == "3":
-            print(f"Contacting IP echo service: {PUBLIC_IP_ENDPOINT}")
+            print(f"Contacting IPv4 echo service: {PUBLIC_IPV4_ENDPOINT}")
+            print(f"Contacting IPv6 echo service: {PUBLIC_IPV6_ENDPOINT}")
             if not verify_tls:
                 print(TLS_WARNING)
             try:
-                public_ip = get_public_egress_ip(
+                public_ips = get_public_egress_ips(
                     verify_tls=verify_tls,
                     user_agent=selected_user_agent.value,
                 )
-                print(f"Public egress IP: {public_ip}")
-                print("Use this address when searching ingress, proxy, or WAF events.")
+                print(f"Public IPv4 egress: {public_ips.ipv4 or 'unavailable'}")
+                if public_ips.ipv4_error:
+                    print(f"  IPv4 lookup error: {public_ips.ipv4_error}")
+                print(f"Public IPv6 egress: {public_ips.ipv6 or 'unavailable'}")
+                if public_ips.ipv6_error:
+                    print(f"  IPv6 lookup error: {public_ips.ipv6_error}")
+                print("Search for the address family used by the tested destination.")
             except (ConnectionError, ValueError) as exc:
                 print(f"ERROR: Unable to determine public egress IP: {exc}")
         elif choice == "4":
