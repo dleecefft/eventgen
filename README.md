@@ -56,19 +56,30 @@ Prisma Browser's vendor default is Chrome-compatible and does not contain a
 universal Prisma identifier. The included profile models Palo Alto's documented
 additional-component configuration by appending `PrismaAccessBrowser/1.0`.
 
-Choose **Show public egress IP** to make one request to an external IP-echo
-service and display the public IPv4 or IPv6 address it observes after NAT. This
-is the address to search for in ingress, proxy, and WAF records. The default
-service is `https://api64.ipify.org?format=json`; override it when required:
+Choose **Show public egress IP** to make separate requests to IPv4-only and
+IPv6-only echo services. The results show both outbound paths when both are
+available; a failed IPv6 lookup does not discard a valid IPv4 result. Search
+for the address family actually used by the tested destination in ingress,
+proxy, and WAF records.
+
+The defaults are `https://api.ipify.org?format=json` for IPv4 and
+`https://api6.ipify.org?format=json` for IPv6. Override either endpoint when an
+organization-approved service is required:
 
 ```powershell
-$env:EVENTGEN_IP_ECHO_URL = "https://approved.example/ip"
+$env:EVENTGEN_IPV4_ECHO_URL = "https://approved.example/ipv4"
+$env:EVENTGEN_IPV6_ECHO_URL = "https://approved.example/ipv6"
 python -m cli.eventgen_cli
 ```
 
-The IP lookup discloses the instance's public address and selected User-Agent to
-the configured service. Use an organization-approved endpoint if that matters
-for your environment.
+`EVENTGEN_IP_ECHO_URL` remains a backward-compatible IPv4 endpoint override.
+New deployments should use the address-family-specific variables.
+
+Each lookup discloses the corresponding public address and selected User-Agent
+to its configured service. An IPv4-only legacy target will be reached over
+IPv4, but a dual-stack target may select either family. Echo-service results
+are therefore useful search candidates, not proof of the source address seen
+by every destination; the target's logs remain authoritative.
 
 TLS certificate verification is enabled by default. It can be toggled from the
 main menu for a site with an invalid or privately issued certificate. The CLI
@@ -232,6 +243,15 @@ docker run --rm --env-file .env --publish 127.0.0.1:8080:8080 eventgen:mvp
 The image runs as a non-root user with one Gunicorn worker and four threads.
 Keep the hosted service at one instance for this MVP because session evidence is
 stored on that instance's disposable filesystem.
+
+### Cloud Run deployment scripts
+
+The [`cloud_install`](cloud_install/README.md) workflow has been successfully
+run from a remote Linux server connected to Google Cloud with an authenticated
+`gcloud` CLI. Running the same scripts directly in Google Cloud Shell has not
+yet been confirmed, but is expected to work. That distinction is intentional:
+the remote Linux result is verified; Cloud Shell support is currently an
+expectation rather than a recorded test result.
 
 ### Session evidence and shutdown
 

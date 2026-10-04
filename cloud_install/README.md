@@ -1,8 +1,12 @@
 # EventGen — Google Cloud Run install
 
-Scripts to deploy the container in the repo root to Cloud Run. Run them from
-Git Bash, WSL, Linux, macOS or Cloud Shell with `gcloud` authenticated
-(`gcloud auth login`). Test the app locally first; see the main README.
+Scripts to deploy the container in the repo root to Cloud Run. The complete
+workflow has been confirmed from a remote Linux server with `gcloud`
+authenticated to Google Cloud. Execution inside Google Cloud Shell has not yet
+been confirmed, although it is expected to work because the scripts use Bash
+and the standard `gcloud` CLI. Git Bash, WSL and macOS are also expected to
+work but are not part of that confirmed deployment result. Test the app locally
+first; see the main README.
 
 | Script | Purpose |
 | --- | --- |
@@ -51,10 +55,13 @@ default stays on.
   disposable filesystem. **Download the session log before the instance scales
   to zero or you run `teardown.sh`.** An idle instance is reclaimed
   automatically, so download as soon as a test run finishes.
-- Requests to your targets leave from Cloud Run's shared egress addresses. Use
-  the app's **Show public egress IP** feature to record the address seen in
-  each run, and tell the owners of the target's allow/ban lists before testing.
-  Existing scanner auto-banning may block this service's address.
+- Requests to your targets leave from Cloud Run's shared, dynamic egress
+  addresses unless separate VPC/NAT configuration supplies static egress. Use
+  the app's **Show public egress IP** feature to probe IPv4 and IPv6 separately
+  for each run, and tell the owners of the target's allow/ban lists before
+  testing. Existing scanner auto-banning may block either address. An address
+  returned by an echo service describes that protocol path at that moment; the
+  destination log remains authoritative for the address used to reach it.
 - `EVENTGEN_ALLOWED_HOSTS` is the SSRF guard. Keep it to the sites you are
   authorised to test.
 - Redeploy a new instance: `bash cloud_install/deploy-cloudrun.sh`. Reuse the

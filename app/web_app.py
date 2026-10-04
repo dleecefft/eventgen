@@ -42,7 +42,7 @@ from app.certificate_inspector import inspect_certificate_chain
 from app.waf_tester import WafRunManager, create_waf_blueprint
 
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 USERNAME_ENV = "EVENTGEN_USERNAME"
 PASSWORD_ENV = "EVENTGEN_PASSWORD"
 SECRET_KEY_ENV = "EVENTGEN_SECRET_KEY"
@@ -438,6 +438,12 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
                 session_id(),
                 {
                     "event_type": "public_ip_observed",
+                    # Preserve the original single-address fields for existing
+                    # report consumers while adding explicit dual-stack data.
+                    "public_ip": addresses.ipv4 or addresses.ipv6,
+                    "service": addresses.ipv4_service
+                    if addresses.ipv4
+                    else addresses.ipv6_service,
                     "public_ips": addresses.to_dict(),
                     "tls_verified": verify_tls,
                     "user_agent": user_agent.value,

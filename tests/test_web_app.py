@@ -189,6 +189,7 @@ class WebAppTests(unittest.TestCase):
         event = next(
             item for item in report["events"] if item["event_type"] == "public_ip_observed"
         )
+        self.assertEqual(event["public_ip"], "203.0.113.42")
         self.assertEqual(event["public_ips"]["ipv4"], "203.0.113.42")
         self.assertEqual(event["public_ips"]["ipv6"], "2001:db8::42")
 

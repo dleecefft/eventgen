@@ -32,12 +32,12 @@
     <aside class="stack">
       <section class="card">
         <h2>Public egress IP</h2>
-        <p class="muted">Ask the configured external service which NAT address it observes.</p>
+        <p class="muted">Ask the configured IPv4-only and IPv6-only services which outbound addresses they observe. Either family may be unavailable.</p>
         <form method="post" action="{{ url_for('public_ip') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="user_agent_index" value="0">
           <input type="hidden" name="verify_tls" value="on">
-          <button class="secondary" type="submit">Show public IP</button>
+          <button class="secondary" type="submit">Show public IPv4 and IPv6</button>
         </form>
       </section>
       <section class="card">

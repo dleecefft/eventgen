@@ -282,7 +282,7 @@ def get_public_egress_ips(
                     f"IPv{version} echo service returned an IPv{observed_version} address."
                 )
             addresses[version] = address
-        except ConnectionError as exc:
+        except (ConnectionError, ValueError) as exc:
             errors[version] = str(exc)
     if addresses[4] is None and addresses[6] is None:
         raise ConnectionError(
