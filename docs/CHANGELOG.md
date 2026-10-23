@@ -2,6 +2,28 @@
 
 This file records material EventGen changes and their validation boundaries.
 
+## 2026-10-22 — Version 0.2.3 — Custom User-Agent validation
+
+### Added
+
+- Preset/custom User-Agent selection for one-off browser requests and WAF runs.
+- Shared validation that permits printable ASCII shell-like detection markers
+  while rejecting header line breaks, control characters, ambiguous surrounding
+  whitespace, non-ASCII values and values longer than 1,024 characters.
+- Custom User-Agent persistence across manually approved redirects and immutable
+  WAF previews/runs, with preset/custom source metadata in session evidence.
+- CLI support for entering a custom User-Agent.
+
+### Validation boundary
+
+- Custom values are passed only to the HTTP header API and are never evaluated
+  by a shell or command interpreter.
+- A custom WAF-run User-Agent is repeated on every request. The benign baseline
+  describes URL marker values only when that header is attack-shaped.
+- Automated tests cover exact shell-shaped values, rejection rules, redirect
+  persistence, WAF plan immutability and evidence metadata. All 45 tests passed
+  using the project virtual environment.
+
 ## 2026-10-04 — Version 0.2.2 — Testing MVP accepted
 
 EventGen is considered sufficient for the current on-demand SOC testing use

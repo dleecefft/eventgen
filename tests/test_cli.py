@@ -18,6 +18,7 @@ from cli.eventgen_cli import (
     redirect_target,
     select_user_agent,
     send_once,
+    validate_user_agent,
 )
 
 
@@ -105,6 +106,18 @@ class CliTests(unittest.TestCase):
 
         self.assertIs(selected, USER_AGENT_OPTIONS[2])
 
+    def test_user_agent_selector_accepts_custom_shell_like_text(self) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+        with (
+            patch("builtins.input", side_effect=["c", custom]),
+            redirect_stdout(StringIO()),
+        ):
+            selected = select_user_agent(DEFAULT_USER_AGENT)
+
+        self.assertEqual(selected.name, "Custom User-Agent")
+        self.assertEqual(selected.value, custom)
+        self.assertEqual(validate_user_agent(custom), custom)
+
     def test_normalize_url_defaults_to_https_and_removes_fragment(self) -> None:
         self.assertEqual(
             normalize_url("example.com/path#browser-only"),
@@ -141,6 +154,14 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(snapshot.user_agent, selected)
         self.assertEqual(FixtureHandler.user_agents_seen, [selected])
+
+    def test_send_once_transmits_shell_like_user_agent_as_header_data(self) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+
+        snapshot = send_once(f"{self.base_url}/final", user_agent=custom)
+
+        self.assertEqual(snapshot.user_agent, custom)
+        self.assertEqual(FixtureHandler.user_agents_seen, [custom])
 
     def test_get_public_egress_ip_accepts_valid_address(self) -> None:
         address = get_public_egress_ip(endpoint=f"{self.base_url}/ip")

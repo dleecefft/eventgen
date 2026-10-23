@@ -7,9 +7,10 @@
     <dl>
       <dt>Template</dt><dd><code>{{ plan.url_template }}</code></dd>
       <dt>Mode</dt><dd>{{ plan.substitution_mode }}</dd>
-      <dt>Requests</dt><dd>{{ plan.requests|length }} including the benign baseline</dd>
+      <dt>Requests</dt><dd>{{ plan.requests|length }} including the benign URL-input baseline</dd>
       <dt>Rate</dt><dd>At least {{ plan.interval_seconds }} seconds between request starts</dd>
       <dt>Minimum spacing time</dt><dd>{{ plan.estimated_spacing_seconds }} seconds plus response time</dd>
+      <dt>User-Agent source</dt><dd>{{ plan.user_agent_source }}</dd>
       <dt>User-Agent</dt><dd><code>{{ plan.user_agent }}</code></dd>
       <dt>TLS verified</dt><dd>{{ "Yes" if plan.verify_tls else "NO" }}</dd>
       <dt>Payload pack</dt><dd>{{ plan.payload_pack_name }} {{ plan.payload_pack_version }} · <code>{{ plan.payload_pack_digest }}</code></dd>

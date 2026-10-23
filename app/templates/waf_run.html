@@ -8,6 +8,8 @@
       <h2>Run status <span class="status">{{ run.state }}</span></h2>
       <dl>
         <dt>Progress</dt><dd>{{ run.current_index }} / {{ run.plan.requests|length }}</dd>
+        <dt>User-Agent source</dt><dd>{{ run.plan.user_agent_source }}</dd>
+        <dt>User-Agent</dt><dd><code>{{ run.plan.user_agent }}</code></dd>
         <dt>Interval</dt><dd>{{ run.plan.interval_seconds }} seconds</dd>
         <dt>Last request</dt><dd>{{ run.last_request_at_utc or "Not sent" }}</dd>
         <dt>Next eligible</dt><dd>{% if seconds_until_next > 0 %}in {{ '%.1f'|format(seconds_until_next) }} seconds{% else %}now{% endif %}</dd>

@@ -10,6 +10,7 @@
         <dl>
           <dt>URL</dt><dd>{{ snapshot.request_url }}</dd>
           <dt>Validation ID</dt><dd><code>{{ snapshot.validation_id }}</code></dd>
+          <dt>User-Agent source</dt><dd>{{ user_agent_source }}</dd>
           <dt>User-Agent</dt><dd><code>{{ snapshot.user_agent }}</code></dd>
           <dt>TLS verified</dt><dd>{{ "Yes" if snapshot.tls_verified else "NO" }}</dd>
         </dl>
@@ -33,7 +34,9 @@
             <form method="post" action="{{ url_for('make_request') }}">
               <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
               <input type="hidden" name="url" value="{{ resolved_redirect }}">
-              <input type="hidden" name="user_agent_index" value="{{ user_agent_index }}">
+              <input type="hidden" name="user_agent_mode" value="{{ user_agent_source }}">
+              <input type="hidden" name="user_agent_index" value="{{ user_agent_index if user_agent_index is not none else 0 }}">
+              {% if user_agent_source == "custom" %}<input type="hidden" name="custom_user_agent" value="{{ custom_user_agent }}">{% endif %}
               {% if snapshot.tls_verified %}<input type="hidden" name="verify_tls" value="on">{% endif %}
               <button type="submit">Proceed</button>
             </form>

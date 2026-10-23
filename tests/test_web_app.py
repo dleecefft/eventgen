@@ -9,7 +9,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from app.http_client import PublicEgressAddresses, ResponseSnapshot, get_public_egress_ips
+from app.http_client import (
+    MAX_USER_AGENT_LENGTH,
+    PublicEgressAddresses,
+    ResponseSnapshot,
+    get_public_egress_ips,
+    resolve_user_agent,
+    validate_user_agent,
+)
 from app.certificate_inspector import CertificateChainResult, CertificateDetails
 from app.web_app import (
     ALLOWED_HOSTS_ENV,
@@ -87,6 +94,32 @@ class WebAppTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 400)
 
+    def test_custom_user_agent_validation_allows_shell_like_text(self) -> None:
+        value = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+
+        resolved = resolve_user_agent(mode="custom", custom_user_agent=value)
+
+        self.assertEqual(resolved.value, value)
+        self.assertEqual(resolved.source, "custom")
+        self.assertIsNone(resolved.preset_index)
+
+    def test_custom_user_agent_validation_rejects_unsafe_or_ambiguous_values(self) -> None:
+        invalid_values = (
+            "",
+            "   ",
+            " leading",
+            "trailing ",
+            "line\r\nbreak",
+            "tab\tvalue",
+            "non-ascii-\N{SNOWMAN}",
+            "x" * (MAX_USER_AGENT_LENGTH + 1),
+        )
+
+        for value in invalid_values:
+            with self.subTest(value=repr(value)):
+                with self.assertRaises(ValueError):
+                    validate_user_agent(value)
+
     def test_hostname_patterns_are_exact_or_subdomain_only(self) -> None:
         patterns = ("example.test", "*.example.test")
 
@@ -156,6 +189,84 @@ class WebAppTests(unittest.TestCase):
             request_event["response"]["headers"][1]["value"], "[REDACTED]"
         )
         self.assertNotIn(self.password, download.get_data(as_text=True))
+
+    @patch("app.web_app.validate_target", return_value="https://example.test/start")
+    @patch("app.web_app.send_once")
+    def test_custom_user_agent_is_sent_and_logged(
+        self, mock_send, _mock_validate
+    ) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+        mock_send.return_value = ResponseSnapshot(
+            request_url="https://example.test/start",
+            validation_id="custom-agent-123",
+            user_agent=custom,
+            status=200,
+            reason="OK",
+            headers=(("Content-Type", "text/plain"),),
+            body=b"ok",
+            body_truncated=False,
+            tls_verified=True,
+        )
+        csrf = self.csrf_token()
+
+        response = self.client.post(
+            "/request",
+            headers=self.auth_headers(),
+            data={
+                "csrf_token": csrf,
+                "url": "https://example.test/start",
+                "user_agent_mode": "custom",
+                "user_agent_index": "0",
+                "custom_user_agent": custom,
+                "verify_tls": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mock_send.call_args.kwargs["user_agent"], custom)
+        report = json.loads(
+            self.client.get("/session-log.json", headers=self.auth_headers()).data
+        )
+        event = next(item for item in report["events"] if item["event_type"] == "request")
+        self.assertEqual(event["request"]["user_agent"], custom)
+        self.assertEqual(event["request"]["user_agent_source"], "custom")
+
+    @patch("app.web_app.validate_target", return_value="https://example.test/start")
+    @patch("app.web_app.send_once")
+    def test_custom_user_agent_is_preserved_for_manual_redirect(
+        self, mock_send, _mock_validate
+    ) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+        mock_send.return_value = ResponseSnapshot(
+            request_url="https://example.test/start",
+            validation_id="redirect-agent-123",
+            user_agent=custom,
+            status=302,
+            reason="Found",
+            headers=(("Location", "/next"),),
+            body=b"",
+            body_truncated=False,
+            tls_verified=True,
+        )
+        csrf = self.csrf_token()
+
+        response = self.client.post(
+            "/request",
+            headers=self.auth_headers(),
+            data={
+                "csrf_token": csrf,
+                "url": "https://example.test/start",
+                "user_agent_mode": "custom",
+                "user_agent_index": "0",
+                "custom_user_agent": custom,
+                "verify_tls": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'name="user_agent_mode" value="custom"', response.data)
+        self.assertIn(b'name="custom_user_agent"', response.data)
+        self.assertIn(b"&lt;probe&gt;", response.data)
 
     @patch(
         "app.web_app.get_public_egress_ips",
@@ -284,7 +395,7 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertEqual(preview.status_code, 200)
         self.assertIn(b"Review the exact WAF request plan", preview.data)
-        self.assertIn(b"7 including the benign baseline", preview.data)
+        self.assertIn(b"7 including the benign URL-input baseline", preview.data)
 
         manager = self.app.extensions["eventgen_waf_manager"]
         preview_id = next(iter(manager.previews))
@@ -334,6 +445,33 @@ class WebAppTests(unittest.TestCase):
             request_event["result"]["user_agent"],
             manager.runs[next(iter(manager.runs))].plan.user_agent,
         )
+
+    @patch("app.web_app.validate_target", side_effect=lambda url, _hosts: url)
+    def test_waf_preview_freezes_custom_user_agent(self, _mock_validate) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+        csrf = self.csrf_token()
+
+        response = self.client.post(
+            "/waf/preview",
+            headers=self.auth_headers(),
+            data={
+                "csrf_token": csrf,
+                "url_template": "https://example.test/search?q=[replaceme]",
+                "substitution_mode": "synchronized",
+                "rate_name": "standard",
+                "user_agent_mode": "custom",
+                "user_agent_index": "0",
+                "custom_user_agent": custom,
+                "verify_tls": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        manager = self.app.extensions["eventgen_waf_manager"]
+        plan = manager.previews[next(iter(manager.previews))]
+        self.assertEqual(plan.user_agent, custom)
+        self.assertEqual(plan.user_agent_source, "custom")
+        self.assertIn(b"&lt;probe&gt;", response.data)
 
 
 if __name__ == "__main__":

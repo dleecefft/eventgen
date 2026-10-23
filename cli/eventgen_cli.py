@@ -23,6 +23,7 @@ from urllib.request import (
 DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_MAX_REDIRECTS = 10
+MAX_USER_AGENT_LENGTH = 1024
 CORRELATION_HEADER = "X-Validation-ID"
 PUBLIC_IPV4_ENDPOINT = os.environ.get(
     "EVENTGEN_IPV4_ECHO_URL",
@@ -113,6 +114,22 @@ USER_AGENT_OPTIONS: tuple[UserAgentOption, ...] = (
 DEFAULT_USER_AGENT = USER_AGENT_OPTIONS[0]
 
 
+def validate_user_agent(value: str) -> str:
+    """Validate an exact User-Agent value without interpreting its contents."""
+
+    if not value or not value.strip():
+        raise ValueError("A custom User-Agent is required.")
+    if len(value) > MAX_USER_AGENT_LENGTH:
+        raise ValueError(
+            f"The User-Agent must be no more than {MAX_USER_AGENT_LENGTH} characters."
+        )
+    if value != value.strip():
+        raise ValueError("The User-Agent must not start or end with whitespace.")
+    if any(ord(character) < 0x20 or ord(character) > 0x7E for character in value):
+        raise ValueError("The User-Agent must contain printable ASCII characters only.")
+    return value
+
+
 class RedirectBlocked(HTTPRedirectHandler):
     """Return redirects to the caller instead of following them automatically."""
 
@@ -186,6 +203,7 @@ def send_once(
     """Send one GET and capture its response without following redirects."""
 
     normalized_url = normalize_url(url)
+    user_agent = validate_user_agent(user_agent)
     validation_id = str(uuid.uuid4())
     request = Request(
         normalized_url,
@@ -418,17 +436,31 @@ def select_user_agent(current: UserAgentOption) -> UserAgentOption:
     while True:
         raw_choice = input(
             f"Select User-Agent [0-{len(USER_AGENT_OPTIONS) - 1}] "
-            "or press Enter to keep the current selection: "
+            "or C for a custom value; press Enter to keep the current selection: "
         ).strip()
         if not raw_choice:
             return current
+        if raw_choice.casefold() == "c":
+            raw_value = input("Custom User-Agent: ")
+            try:
+                value = validate_user_agent(raw_value)
+            except ValueError as exc:
+                print(f"ERROR: {exc}")
+                continue
+            return UserAgentOption(
+                name="Custom User-Agent",
+                value=value,
+                note="operator supplied",
+            )
         try:
             selected_index = int(raw_choice)
             if not 0 <= selected_index < len(USER_AGENT_OPTIONS):
                 raise ValueError
             return USER_AGENT_OPTIONS[selected_index]
         except ValueError:
-            print(f"Enter a number from 0 to {len(USER_AGENT_OPTIONS) - 1}.")
+            print(
+                f"Enter a number from 0 to {len(USER_AGENT_OPTIONS) - 1}, or C."
+            )
 
 
 def main() -> int:

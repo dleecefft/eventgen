@@ -106,6 +106,27 @@ class WafTemplateTests(unittest.TestCase):
         self.assertIn("%3Csoc_testing%3E", generated)
         self.assertNotIn("%253C", generated)
 
+    def test_custom_user_agent_is_frozen_in_plan_and_evidence_shape(self) -> None:
+        custom = "curl/8.4.0 $(printf soc_testing); echo '<probe>' | sh"
+
+        plan = build_plan(
+            owner_session_id="owner",
+            url_template="https://example.test/search?q=[replaceme]",
+            substitution_mode="synchronized",
+            rate_name="standard",
+            user_agent_index=0,
+            verify_tls=True,
+            payload_pack=self.pack,
+            target_validator=lambda url: url,
+            user_agent_mode="custom",
+            custom_user_agent=custom,
+        )
+
+        self.assertEqual(plan.user_agent, custom)
+        self.assertEqual(plan.user_agent_source, "custom")
+        self.assertIsNone(plan.user_agent_index)
+        self.assertEqual(plan.to_dict()["user_agent_source"], "custom")
+
 
 class WafRunManagerTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -170,6 +191,7 @@ class WafRunManagerTests(unittest.TestCase):
 
         self.assertEqual(result["target_date_header"], "Sun, 04 Oct 2026 18:00:00 GMT")
         self.assertEqual(result["user_agent"], self.run.plan.user_agent)
+        self.assertEqual(result["user_agent_source"], "preset")
         request_events = [event for _, event in self.log.events if event["event_type"] == "waf_request"]
         self.assertEqual(len(request_events), 1)
         self.assertEqual(

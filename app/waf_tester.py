@@ -15,7 +15,13 @@ from urllib.parse import quote, urlsplit
 
 from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
-from app.http_client import TLS_WARNING, USER_AGENT_OPTIONS, ResponseSnapshot, send_once
+from app.http_client import (
+    TLS_WARNING,
+    USER_AGENT_OPTIONS,
+    ResponseSnapshot,
+    resolve_user_agent,
+    send_once,
+)
 
 
 MAX_MARKERS = 3
@@ -93,7 +99,8 @@ class WafPlan:
     requests: tuple[PlannedRequest, ...]
     rate_name: str
     interval_seconds: int
-    user_agent_index: int
+    user_agent_index: int | None
+    user_agent_source: str
     user_agent: str
     verify_tls: bool
     payload_pack_name: str
@@ -117,6 +124,7 @@ class WafPlan:
             "interval_seconds": self.interval_seconds,
             "estimated_spacing_seconds": self.estimated_spacing_seconds,
             "user_agent_index": self.user_agent_index,
+            "user_agent_source": self.user_agent_source,
             "user_agent": self.user_agent,
             "tls_verified": self.verify_tls,
             "payload_pack": {
@@ -282,17 +290,18 @@ def build_plan(
     verify_tls: bool,
     payload_pack: PayloadPack,
     target_validator: Callable[[str], str],
+    user_agent_mode: str = "preset",
+    custom_user_agent: str = "",
 ) -> WafPlan:
     if substitution_mode not in SUBSTITUTION_MODES:
         raise ValueError("Choose isolated or synchronized substitution mode.")
     if rate_name not in RATE_PROFILES:
         raise ValueError("Choose the 5, 15, or 60 second rate profile.")
-    try:
-        user_agent = USER_AGENT_OPTIONS[user_agent_index]
-        if user_agent_index < 0:
-            raise IndexError
-    except IndexError as exc:
-        raise ValueError("Choose a valid User-Agent.") from exc
+    user_agent = resolve_user_agent(
+        mode=user_agent_mode,
+        user_agent_index=user_agent_index,
+        custom_user_agent=custom_user_agent,
+    )
 
     template, positions = inspect_template(url_template)
     prefix = secrets.token_hex(6)
@@ -365,7 +374,8 @@ def build_plan(
         requests=tuple(requests),
         rate_name=rate_name,
         interval_seconds=RATE_PROFILES[rate_name],
-        user_agent_index=user_agent_index,
+        user_agent_index=user_agent.preset_index,
+        user_agent_source=user_agent.source,
         user_agent=user_agent.value,
         verify_tls=verify_tls,
         payload_pack_name=payload_pack.name,
@@ -513,6 +523,7 @@ class WafRunManager:
                 "marker_values": dict(planned.marker_values),
                 "url": planned.url,
                 "user_agent": run.plan.user_agent,
+                "user_agent_source": run.plan.user_agent_source,
                 "tls_verified": run.plan.verify_tls,
                 "payload_pack_version": run.plan.payload_pack_version,
                 "payload_pack_digest": run.plan.payload_pack_digest,
@@ -619,6 +630,8 @@ def create_waf_blueprint(
                 verify_tls=verify_tls,
                 payload_pack=manager.payload_pack,
                 target_validator=target_validator,
+                user_agent_mode=request.form.get("user_agent_mode", "preset"),
+                custom_user_agent=request.form.get("custom_user_agent", ""),
             )
             if plan.rate_name == "fast" and request.form.get("confirm_fast") != "on":
                 raise ValueError("Confirm the 5-second maximum rate before previewing.")
