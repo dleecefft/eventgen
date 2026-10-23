@@ -36,13 +36,14 @@ from app.http_client import (
     get_public_egress_ips,
     normalize_url,
     redirect_target,
+    resolve_user_agent,
     send_once,
 )
 from app.certificate_inspector import inspect_certificate_chain
 from app.waf_tester import WafRunManager, create_waf_blueprint
 
 
-APP_VERSION = "0.2.2"
+APP_VERSION = "0.2.3"
 USERNAME_ENV = "EVENTGEN_USERNAME"
 PASSWORD_ENV = "EVENTGEN_PASSWORD"
 SECRET_KEY_ENV = "EVENTGEN_SECRET_KEY"
@@ -333,24 +334,32 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
     def make_request() -> str | Response:
         raw_url = request.form.get("url", "")
         verify_tls = request.form.get("verify_tls") == "on"
+        user_agent_mode = request.form.get("user_agent_mode", "preset")
         try:
             user_agent_index = int(request.form.get("user_agent_index", "0"))
-            user_agent = USER_AGENT_OPTIONS[user_agent_index]
-            if user_agent_index < 0:
-                raise IndexError
+            user_agent = resolve_user_agent(
+                mode=user_agent_mode,
+                user_agent_index=user_agent_index,
+                custom_user_agent=request.form.get("custom_user_agent", ""),
+            )
             validated_url = validate_target(raw_url, allowed_hosts)
             snapshot = send_once(
                 validated_url,
                 verify_tls=verify_tls,
                 user_agent=user_agent.value,
             )
-        except (ConnectionError, IndexError, ValueError) as exc:
+        except (ConnectionError, ValueError) as exc:
             log_store.append(
                 session_id(),
                 {
                     "event_type": "request_error",
                     "url": sanitize_url_for_log(raw_url),
                     "tls_verified": verify_tls,
+                    "user_agent_source": (
+                        user_agent_mode
+                        if user_agent_mode in {"preset", "custom"}
+                        else "invalid"
+                    ),
                     "error": str(exc),
                 },
             )
@@ -374,6 +383,7 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
                     "url": sanitize_url_for_log(snapshot.request_url),
                     "validation_id": snapshot.validation_id,
                     "user_agent": snapshot.user_agent,
+                    "user_agent_source": user_agent.source,
                     "tls_verified": snapshot.tls_verified,
                 },
                 "response": {
@@ -394,7 +404,11 @@ def create_app(test_config: dict[str, object] | None = None) -> Flask:
             snapshot=snapshot,
             response_body=body_preview(snapshot),
             response_headers=sanitize_response_headers(snapshot.headers),
-            user_agent_index=user_agent_index,
+            user_agent_index=user_agent.preset_index,
+            user_agent_source=user_agent.source,
+            custom_user_agent=(
+                user_agent.value if user_agent.source == "custom" else ""
+            ),
             resolved_redirect=resolved_redirect,
             location=location,
             tls_warning=TLS_WARNING,

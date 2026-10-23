@@ -23,6 +23,7 @@ from urllib.request import (
 DEFAULT_TIMEOUT_SECONDS = 15.0
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
 DEFAULT_MAX_REDIRECTS = 10
+MAX_USER_AGENT_LENGTH = 1024
 CORRELATION_HEADER = "X-Validation-ID"
 PUBLIC_IPV4_ENDPOINT = os.environ.get(
     "EVENTGEN_IPV4_ECHO_URL",
@@ -47,6 +48,14 @@ class UserAgentOption:
     name: str
     value: str
     note: str = ""
+
+
+@dataclass(frozen=True)
+class ResolvedUserAgent:
+    value: str
+    source: str
+    preset_index: int | None
+    name: str
 
 
 # Version references reviewed 2026-10-03. Desktop Chromium user agents use the
@@ -103,6 +112,53 @@ USER_AGENT_OPTIONS: tuple[UserAgentOption, ...] = (
 )
 
 DEFAULT_USER_AGENT = USER_AGENT_OPTIONS[0]
+
+
+def validate_user_agent(value: str) -> str:
+    """Validate an exact User-Agent value without interpreting its contents."""
+
+    if not value or not value.strip():
+        raise ValueError("A custom User-Agent is required.")
+    if len(value) > MAX_USER_AGENT_LENGTH:
+        raise ValueError(
+            f"The User-Agent must be no more than {MAX_USER_AGENT_LENGTH} characters."
+        )
+    if value != value.strip():
+        raise ValueError("The User-Agent must not start or end with whitespace.")
+    if any(ord(character) < 0x20 or ord(character) > 0x7E for character in value):
+        raise ValueError("The User-Agent must contain printable ASCII characters only.")
+    return value
+
+
+def resolve_user_agent(
+    *,
+    mode: str = "preset",
+    user_agent_index: int = 0,
+    custom_user_agent: str = "",
+) -> ResolvedUserAgent:
+    """Resolve a preset or operator-supplied User-Agent into an exact value."""
+
+    if mode == "custom":
+        return ResolvedUserAgent(
+            value=validate_user_agent(custom_user_agent),
+            source="custom",
+            preset_index=None,
+            name="Custom User-Agent",
+        )
+    if mode != "preset":
+        raise ValueError("Choose a preset or custom User-Agent.")
+    try:
+        option = USER_AGENT_OPTIONS[user_agent_index]
+        if user_agent_index < 0:
+            raise IndexError
+    except (IndexError, TypeError) as exc:
+        raise ValueError("Choose a valid User-Agent.") from exc
+    return ResolvedUserAgent(
+        value=option.value,
+        source="preset",
+        preset_index=user_agent_index,
+        name=option.name,
+    )
 
 
 class RedirectBlocked(HTTPRedirectHandler):
@@ -203,6 +259,7 @@ def send_once(
     """Send one GET and capture its response without following redirects."""
 
     normalized_url = normalize_url(url)
+    user_agent = validate_user_agent(user_agent)
     validation_id = validation_id or str(uuid.uuid4())
     request = Request(
         normalized_url,

@@ -30,11 +30,22 @@
         </fieldset>
         <label class="check"><input type="checkbox" name="confirm_fast">I explicitly authorize the 5-second rate if selected</label>
 
-        <label>User-Agent
+        <fieldset>
+          <legend>User-Agent</legend>
+          <div class="radio-group">
+            <label class="radio"><input type="radio" name="user_agent_mode" value="preset" checked><span>Use a reviewed preset</span></label>
+            <label class="radio"><input type="radio" name="user_agent_mode" value="custom"><span>Send a custom value on every request</span></label>
+          </div>
+        </fieldset>
+        <label>Preset User-Agent
           <select name="user_agent_index">
             {% for option in user_agents %}<option value="{{ loop.index0 }}">{{ loop.index0 }} · {{ option.name }}</option>{% endfor %}
           </select>
         </label>
+        <label>Custom User-Agent
+          <input type="text" name="custom_user_agent" maxlength="1024" autocomplete="off" spellcheck="false" placeholder="Enter the exact header value">
+        </label>
+        <p class="muted">The selected value is frozen in the preview and repeated on every request. Shell-like punctuation is allowed; control characters and header line breaks are rejected.</p>
         <label class="check"><input type="checkbox" name="verify_tls" checked>Verify the server TLS certificate</label>
         <button type="submit">Preview exact requests</button>
       </form>

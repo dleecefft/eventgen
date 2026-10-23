@@ -16,10 +16,10 @@ connections reach the target and are logged.
 
 ## MVP validation status
 
-Version `0.2.2` is considered sufficient for the intended on-demand SOC
-testing workflow. The application has been deployed to Cloud Run by running the
-`cloud_install` scripts from a remote Linux server, and a captured external
-session confirmed:
+Version `0.2.3` extends the accepted on-demand SOC testing MVP with controlled
+custom User-Agent values. The underlying `0.2.2` application was deployed to
+Cloud Run by running the `cloud_install` scripts from a remote Linux server,
+and a captured external session confirmed:
 
 - independent IPv4 and IPv6 egress-address discovery;
 - a single-request response and explicit redirect-drop workflow;
@@ -29,8 +29,7 @@ session confirmed:
 - TLS-verification state, response metadata and redacted cookies in evidence;
 - completed-run and partial/final JSON session-log download.
 
-The automated suite currently contains 37 passing tests. Execution directly
-inside Google Cloud Shell remains expected but unconfirmed.
+Execution directly inside Google Cloud Shell remains expected but unconfirmed.
 
 This validation establishes that EventGen can generate controlled external
 requests and preserve useful correlation evidence. HTTP status codes do not by
@@ -76,6 +75,13 @@ Chrome on Windows, Chrome on iPhone, a Prisma Browser profile with a configured
 identification component, a `soc_testing` profile, and the `axios/1.7.9` string
 observed in token-replay activity. The selected value is preserved across every
 manually approved redirect and displayed with the response.
+
+Choose the custom option to send an operator-supplied User-Agent exactly as
+entered. Printable ASCII shell-like punctuation is allowed so detections for
+attack-shaped header values can be exercised. Empty values, leading or trailing
+whitespace, control characters, non-ASCII text and values longer than 1,024
+characters are rejected. The value is treated only as HTTP header data and is
+never passed to a command interpreter.
 
 Prisma Browser's vendor default is Chrome-compatible and does not contain a
 universal Prisma identifier. The included profile models Palo Alto's documented
@@ -126,7 +132,7 @@ The test suite uses a local HTTP fixture and does not contact the internet.
 The Flask application preserves the CLI's core workflow in a browser:
 
 - operator-entered URLs within a deployment-managed hostname scope;
-- selectable User-Agent profiles and optional unverified TLS;
+- selectable preset or custom User-Agent values and optional unverified TLS;
 - response status, sanitized headers, and bounded body preview;
 - display of the server-presented TLS certificate chain, including subjects,
   issuers, validity, SANs, and SHA-256 fingerprints;
@@ -147,9 +153,11 @@ combined as a Cartesian product. Runs are limited to 25 sequential requests,
 never follow redirects or retry automatically, and enforce 5-, 15-, or
 60-second spacing on the server. The browser must remain open for automatic
 progression; pause, single-step, stop, and partial log download remain
-available throughout the run. The selected User-Agent is fixed in the immutable
-run plan, applied to every generated request, and repeated in every per-request
-session evidence record.
+available throughout the run. The selected preset or custom User-Agent is fixed
+in the immutable run plan, applied to every generated request, and repeated in
+every per-request session evidence record with its source. When a custom
+attack-shaped User-Agent is selected, the baseline remains benign only for the
+marked URL inputs; the custom header is repeated unchanged on every request.
 
 The application refuses to start unless these environment variables exist:
 

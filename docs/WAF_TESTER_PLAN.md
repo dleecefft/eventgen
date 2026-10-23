@@ -33,7 +33,7 @@ purpose Burp Intruder replacement.
 3. Select:
    - a built-in, versioned payload profile;
    - isolated or synchronized substitution mode when multiple markers exist;
-   - a User-Agent from the existing catalog;
+   - a User-Agent from the existing catalog or an operator-supplied custom value;
    - TLS verification on or explicitly off; and
    - one of the three fixed speeds.
 4. Select **Preview**. No target request is sent at this stage.
@@ -257,7 +257,7 @@ A run record should contain:
   names where applicable, and selected substitution mode;
 - payload-pack name, version, digest, and ordered payload IDs;
 - speed name and interval seconds;
-- selected User-Agent and TLS-verification state;
+- selected User-Agent, preset/custom source and TLS-verification state;
 - current index, total count, state, and stop reason;
 - hard request cap and target-policy snapshot; and
 - a random run correlation prefix.
@@ -300,7 +300,8 @@ confirms corresponding downstream evidence.
 - Substitution-mode selector shown only when the template has multiple markers:
   **Isolated positions** (default) or **Synchronized positions**.
 - Speed radio buttons: 5 seconds, 15 seconds (default), and 60 seconds.
-- Existing User-Agent and TLS-verification controls.
+- Preset/custom User-Agent and TLS-verification controls. Custom values are
+  frozen in the preview and repeated unchanged throughout the run.
 - Optional benign-control checkbox, enabled by default.
 - Preview table with sequence, payload ID/category, active marker and parameter,
   complete marker mapping, encoded replacement, final URL, and projected

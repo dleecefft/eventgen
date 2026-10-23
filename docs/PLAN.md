@@ -263,7 +263,8 @@ Ship conservative defaults and fail startup when no target allowlist is set.
 - Display status, headers, a bounded body preview, TLS-verification state, and a
   unique correlation ID.
 - Provide an expandable numbered User-Agent catalog, defaulting to Edge on
-  Windows, and preserve the selected string across manually approved redirects.
+  Windows, plus a validated custom value option. Preserve the selected string
+  across manually approved redirects.
 - Provide an explicit public-egress-IP lookup so analysts can search downstream
   logs by the NAT address observed outside the deployment. Make the echo service
   configurable and disclose that the lookup contacts it.
